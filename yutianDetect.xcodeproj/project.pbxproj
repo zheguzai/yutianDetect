@@ -1,0 +1,327 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B6125E381727F5530077F5AC /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E371727F5530077F5AC /* UIKit.framework */; };
+		B6125E3A1727F5530077F5AC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E391727F5530077F5AC /* Foundation.framework */; };
+		B6125E3C1727F5530077F5AC /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E3B1727F5530077F5AC /* CoreGraphics.framework */; };
+		B6125E421727F5530077F5AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6125E401727F5530077F5AC /* InfoPlist.strings */; };
+		B6125E441727F5530077F5AC /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = B6125E431727F5530077F5AC /* main.m */; };
+		B6125E481727F5530077F5AC /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = B6125E471727F5530077F5AC /* AppDelegate.m */; };
+		B6125E4A1727F5530077F5AC /* Default.png in Resources */ = {isa = PBXBuildFile; fileRef = B6125E491727F5530077F5AC /* Default.png */; };
+		B6125E4C1727F5530077F5AC /* Default@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = B6125E4B1727F5530077F5AC /* Default@2x.png */; };
+		B6125E4E1727F5530077F5AC /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = B6125E4D1727F5530077F5AC /* Default-568h@2x.png */; };
+		B6125E511727F5530077F5AC /* ViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = B6125E501727F5530077F5AC /* ViewController.mm */; };
+		B6125E541727F5530077F5AC /* ViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = B6125E521727F5530077F5AC /* ViewController.xib */; };
+		B6125E5E1727F7B60077F5AC /* UIImage+OpenCV.mm in Sources */ = {isa = PBXBuildFile; fileRef = B6125E5D1727F7B60077F5AC /* UIImage+OpenCV.mm */; };
+		B6125E611727F7EE0077F5AC /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E5F1727F7D30077F5AC /* libz.dylib */; };
+		B6125E621727F7F90077F5AC /* OpenCV.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E5A1727F5C60077F5AC /* OpenCV.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B6125E341727F5530077F5AC /* yutianDetect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = yutianDetect.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6125E371727F5530077F5AC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		B6125E391727F5530077F5AC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		B6125E3B1727F5530077F5AC /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		B6125E3F1727F5530077F5AC /* yutianDetect-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "yutianDetect-Info.plist"; sourceTree = "<group>"; };
+		B6125E411727F5530077F5AC /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		B6125E431727F5530077F5AC /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		B6125E451727F5530077F5AC /* yutianDetect-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "yutianDetect-Prefix.pch"; sourceTree = "<group>"; };
+		B6125E461727F5530077F5AC /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		B6125E471727F5530077F5AC /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		B6125E491727F5530077F5AC /* Default.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Default.png; sourceTree = "<group>"; };
+		B6125E4B1727F5530077F5AC /* Default@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default@2x.png"; sourceTree = "<group>"; };
+		B6125E4D1727F5530077F5AC /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
+		B6125E4F1727F5530077F5AC /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
+		B6125E501727F5530077F5AC /* ViewController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ViewController.mm; sourceTree = "<group>"; };
+		B6125E531727F5530077F5AC /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/ViewController.xib; sourceTree = "<group>"; };
+		B6125E5A1727F5C60077F5AC /* OpenCV.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCV.framework; path = yutianDetect/OpenCV.framework; sourceTree = "<group>"; };
+		B6125E5C1727F7B60077F5AC /* UIImage+OpenCV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+OpenCV.h"; sourceTree = "<group>"; };
+		B6125E5D1727F7B60077F5AC /* UIImage+OpenCV.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UIImage+OpenCV.mm"; sourceTree = "<group>"; };
+		B6125E5F1727F7D30077F5AC /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B6125E311727F5530077F5AC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6125E621727F7F90077F5AC /* OpenCV.framework in Frameworks */,
+				B6125E611727F7EE0077F5AC /* libz.dylib in Frameworks */,
+				B6125E381727F5530077F5AC /* UIKit.framework in Frameworks */,
+				B6125E3A1727F5530077F5AC /* Foundation.framework in Frameworks */,
+				B6125E3C1727F5530077F5AC /* CoreGraphics.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B6125E2B1727F5530077F5AC = {
+			isa = PBXGroup;
+			children = (
+				B6125E3D1727F5530077F5AC /* yutianDetect */,
+				B6125E361727F5530077F5AC /* Frameworks */,
+				B6125E351727F5530077F5AC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B6125E351727F5530077F5AC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B6125E341727F5530077F5AC /* yutianDetect.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B6125E361727F5530077F5AC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B6125E5F1727F7D30077F5AC /* libz.dylib */,
+				B6125E5A1727F5C60077F5AC /* OpenCV.framework */,
+				B6125E371727F5530077F5AC /* UIKit.framework */,
+				B6125E391727F5530077F5AC /* Foundation.framework */,
+				B6125E3B1727F5530077F5AC /* CoreGraphics.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B6125E3D1727F5530077F5AC /* yutianDetect */ = {
+			isa = PBXGroup;
+			children = (
+				B6125E5C1727F7B60077F5AC /* UIImage+OpenCV.h */,
+				B6125E5D1727F7B60077F5AC /* UIImage+OpenCV.mm */,
+				B6125E461727F5530077F5AC /* AppDelegate.h */,
+				B6125E471727F5530077F5AC /* AppDelegate.m */,
+				B6125E4F1727F5530077F5AC /* ViewController.h */,
+				B6125E501727F5530077F5AC /* ViewController.mm */,
+				B6125E521727F5530077F5AC /* ViewController.xib */,
+				B6125E3E1727F5530077F5AC /* Supporting Files */,
+			);
+			path = yutianDetect;
+			sourceTree = "<group>";
+		};
+		B6125E3E1727F5530077F5AC /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				B6125E3F1727F5530077F5AC /* yutianDetect-Info.plist */,
+				B6125E401727F5530077F5AC /* InfoPlist.strings */,
+				B6125E431727F5530077F5AC /* main.m */,
+				B6125E451727F5530077F5AC /* yutianDetect-Prefix.pch */,
+				B6125E491727F5530077F5AC /* Default.png */,
+				B6125E4B1727F5530077F5AC /* Default@2x.png */,
+				B6125E4D1727F5530077F5AC /* Default-568h@2x.png */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B6125E331727F5530077F5AC /* yutianDetect */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B6125E571727F5530077F5AC /* Build configuration list for PBXNativeTarget "yutianDetect" */;
+			buildPhases = (
+				B6125E301727F5530077F5AC /* Sources */,
+				B6125E311727F5530077F5AC /* Frameworks */,
+				B6125E321727F5530077F5AC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = yutianDetect;
+			productName = yutianDetect;
+			productReference = B6125E341727F5530077F5AC /* yutianDetect.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B6125E2C1727F5530077F5AC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0460;
+				ORGANIZATIONNAME = fred;
+			};
+			buildConfigurationList = B6125E2F1727F5530077F5AC /* Build configuration list for PBXProject "yutianDetect" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = B6125E2B1727F5530077F5AC;
+			productRefGroup = B6125E351727F5530077F5AC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B6125E331727F5530077F5AC /* yutianDetect */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B6125E321727F5530077F5AC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6125E421727F5530077F5AC /* InfoPlist.strings in Resources */,
+				B6125E4A1727F5530077F5AC /* Default.png in Resources */,
+				B6125E4C1727F5530077F5AC /* Default@2x.png in Resources */,
+				B6125E4E1727F5530077F5AC /* Default-568h@2x.png in Resources */,
+				B6125E541727F5530077F5AC /* ViewController.xib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B6125E301727F5530077F5AC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6125E441727F5530077F5AC /* main.m in Sources */,
+				B6125E481727F5530077F5AC /* AppDelegate.m in Sources */,
+				B6125E511727F5530077F5AC /* ViewController.mm in Sources */,
+				B6125E5E1727F7B60077F5AC /* UIImage+OpenCV.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		B6125E401727F5530077F5AC /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B6125E411727F5530077F5AC /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		B6125E521727F5530077F5AC /* ViewController.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B6125E531727F5530077F5AC /* en */,
+			);
+			name = ViewController.xib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		B6125E551727F5530077F5AC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		B6125E561727F5530077F5AC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B6125E581727F5530077F5AC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LIBRARY = "libstdc++";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/yutianDetect\"",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "yutianDetect/yutianDetect-Prefix.pch";
+				INFOPLIST_FILE = "yutianDetect/yutianDetect-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		B6125E591727F5530077F5AC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LIBRARY = "libstdc++";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/yutianDetect\"",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "yutianDetect/yutianDetect-Prefix.pch";
+				INFOPLIST_FILE = "yutianDetect/yutianDetect-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B6125E2F1727F5530077F5AC /* Build configuration list for PBXProject "yutianDetect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6125E551727F5530077F5AC /* Debug */,
+				B6125E561727F5530077F5AC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B6125E571727F5530077F5AC /* Build configuration list for PBXNativeTarget "yutianDetect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6125E581727F5530077F5AC /* Debug */,
+				B6125E591727F5530077F5AC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B6125E2C1727F5530077F5AC /* Project object */;
+}
