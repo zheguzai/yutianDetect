@@ -16,3 +16,7 @@
     #import <UIKit/UIKit.h>
     #import <Foundation/Foundation.h>
 #endif
+
+#define FLOG(str, args...) NSLog\
+(@"\n[文件:%s] [行号:%d] [类:%@] [方法:%s]\n%@", strrchr(__FILE__, '/'), __LINE__, [self class], sel_getName(_cmd),\
+[NSString stringWithFormat:str , ##args ])
