@@ -221,6 +221,11 @@ using namespace cv;
             [self detectImage_3:mat];
             break;
         }
+        case 4:
+        {
+            [self detectImage_4:mat];
+            break;
+        }
         default: {
             break;
         }
@@ -840,6 +845,195 @@ using namespace cv;
         gettimeofday(&t1, NULL);
         //-- Step 3: Matching descriptor vectors using FLANN matcher
         FlannBasedMatcher matcher;
+        std::vector< DMatch > matches;
+        matcher.match( descriptors_object, descriptors_scene, matches );
+        //        cout<< "matches.size() " << matches.size() << endl;
+        if (matches.size() == 0) {
+            continue;
+        }
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
+        std::cout<< "获取 matches 耗时 " << elapsedTime << endl;
+        
+        //-- Quick calculation of max and min distances between keypoints
+        double max_dist = 0; double min_dist = 100;
+        for( int i = 0; i < descriptors_object.rows; i++ ) {
+            double dist = matches[i].distance;
+            if( dist < min_dist ) {
+                min_dist = dist;
+            }
+            if( dist > max_dist ) {
+                max_dist = dist;
+            }
+        }
+        //        printf("-- Max dist : %f \n", max_dist );
+        //        printf("-- Min dist : %f \n", min_dist );
+        
+        //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+        std::vector< DMatch > good_matches;
+        for( int i = 0; i < descriptors_object.rows; i++ ) {
+            if( matches[i].distance < 3*min_dist ) {
+                good_matches.push_back( matches[i]);
+            }
+        }
+        //        cout<< "good_matches.size() " << good_matches.size() << endl;
+        if (good_matches.size() == 0) {
+            continue;
+        }
+        
+        // 画关键点
+        Mat img_matches;
+        drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        
+        //-- Localize the object from img_1 in img_2
+        std::vector<Point2f> obj;
+        std::vector<Point2f> scene;
+        for( size_t i = 0; i < good_matches.size(); i++ )
+        {
+            //-- Get the keypoints from the good matches
+            obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
+            scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
+        }
+        
+        gettimeofday(&t1, NULL);
+        Mat H = findHomography( obj, scene, CV_RANSAC );
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
+        std::cout<< "findHomography 耗时 " << elapsedTime << endl;
+        
+        //-- Get the corners from the image_1 ( the object to be "detected" )
+        std::vector<Point2f> obj_corners(4);
+        obj_corners[0] = cvPoint(0,0);
+        obj_corners[1] = cvPoint( img_object.cols, 0 );
+        obj_corners[2] = cvPoint( img_object.cols, img_object.rows );
+        obj_corners[3] = cvPoint( 0, img_object.rows );
+        //        for (int j = 0; j < 4; j++) {
+        //            cout<< "obj_corners[" << j << "] = " << obj_corners[j].x << " " << obj_corners[j].y << endl;
+        //        }
+        //        for (int j = 0; j < 4; j++) {
+        //            cout<< "长度 obj_corners " << j << " = " << cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) << endl;
+        //        }
+        
+        // 判断点是否是有效点
+        bool exist = 1;
+        std::vector<Point2f> scene_corners(4);
+        perspectiveTransform( obj_corners, scene_corners, H);
+        //        for (int j = 0; j < 4; j++) {
+        //            cout<< "点 scene_corners[" << j << "] = " << scene_corners[j].x << " " << scene_corners[j].y << endl;
+        //        }
+        for (int j = 0; j < 4; j++) {
+            //            cout<< "长度 scene_corners " << j << " = " << cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) << endl;
+            if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) == 0) {
+                exist = 0;
+                break;
+            }
+        }
+        
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        
+        _imageView_result.image = [UIImage imageWithCVMat:img_matches];
+        
+        if (exist) {
+            float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+            for (int j = 1; j < 4; j++) {
+                float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+                if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                    exist = 0;
+                    break;
+                }
+            }
+        }
+        
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "扫描第 " << i << " 张耗时 " << elapsedTime << endl << endl;
+        
+        if (exist) {
+            break;
+        }
+    }
+    
+    gettimeofday(&t2, NULL);
+    elapsedTime = (t2.tv_sec - tasksStartTime.tv_sec) * 1000.0;
+    elapsedTime += (t2.tv_usec - tasksStartTime.tv_usec) / 1000.0;
+    std::cout << "总耗时 " << elapsedTime << endl;
+    if (i <= count) {
+        std::cout << "这是第 " << i << " 张\n\n";
+        resultLabel.text = @"V";
+    } else {
+        std::cout << "没有对应图片\n\n";
+        resultLabel.text = @"X";
+    }
+    timeLabel.text = [NSString stringWithFormat:@"%f", elapsedTime];
+}
+
+#pragma mark - SurfFeatureDetector SurfDescriptorExtractor BruteForceMatcher
+- (void)detectImage_4:(cv::Mat&)mat {
+    std::cout << "开始\n";
+    
+    timeval tasksStartTime, taskStartTime, t1, t2;
+    double elapsedTime;
+    gettimeofday(&tasksStartTime, NULL);
+    
+    cv::Mat img_scene = mat;
+    NSString *filePath = nil;
+    int i = currentIndex_obj;
+    int count = currentIndex_obj;
+    
+    for (; i <= count; i++) {
+        std::cout << "扫描第 " << i << " 张" << endl;
+        
+        gettimeofday(&taskStartTime, NULL);
+        
+        filePath = [[NSBundle mainBundle] pathForResource:[NSString stringWithFormat:@"%d", i] ofType:@"jpg"];
+        cv::Mat img_object = cv::imread([filePath UTF8String], CV_LOAD_IMAGE_GRAYSCALE);
+        if( !img_object.data || !img_scene.data ) {
+            std::cout << "没有数据\n";
+            return;
+        }
+        
+        gettimeofday(&t1, NULL);
+        //-- Step 1: Detect the keypoints using SURF Detector
+        int minHessian = 1600; //最小 400，命中率高，速度慢
+        SurfFeatureDetector detector( minHessian );
+        
+        std::vector<KeyPoint> keypoints_object, keypoints_scene;
+        detector.detect( img_object, keypoints_object );
+        detector.detect( img_scene, keypoints_scene );
+        //        cout<< "keypoints_object.size() " << keypoints_object.size() << endl;
+        //        cout<< "keypoints_scene.size() " << keypoints_scene.size() << endl;
+        if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
+            continue;
+        }
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
+        std::cout<< "获取关键点耗时 " << elapsedTime << endl;
+        
+        gettimeofday(&t1, NULL);
+        //-- Step 2: Calculate descriptors (feature vectors)
+        SurfDescriptorExtractor extractor;
+        Mat descriptors_object, descriptors_scene;
+        extractor.compute( img_object, keypoints_object, descriptors_object );
+        extractor.compute( img_scene, keypoints_scene, descriptors_scene );
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
+        std::cout<< "计算关键点的描述对象耗时 " << elapsedTime << endl;
+        
+        gettimeofday(&t1, NULL);
+        //-- Step 3: Matching descriptor vectors using FLANN matcher
+        BruteForceMatcher< L2<float> > matcher;
         std::vector< DMatch > matches;
         matcher.match( descriptors_object, descriptors_scene, matches );
         //        cout<< "matches.size() " << matches.size() << endl;
