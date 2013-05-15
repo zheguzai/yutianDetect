@@ -16,16 +16,9 @@
     AVCaptureVideoPreviewLayer *_videoPreviewLayer;
     
     IBOutlet UIImageView *_imageView_result;
-    IBOutlet UILabel *resultLabel;
-    IBOutlet UILabel *timeLabel;
-    IBOutlet UITextField *detectTypeTextField;
-    
-    IBOutlet UIScrollView *scrollView_obj;
-    IBOutlet UIScrollView *scrollView_scene;
-    
-    int currentIndex_obj;
-    int currentIndex_scene;
-    int detectType;
+    IBOutlet UIImageView *_imageView_object;
+    IBOutlet UIImageView *_imageView_scene;
+    IBOutlet UIButton *_restartBtn;
 }
 
 @property (nonatomic, readonly) AVCaptureSession *captureSession;
@@ -33,6 +26,6 @@
 @property (nonatomic, readonly) AVCaptureVideoDataOutput *videoOutput;
 @property (nonatomic, readonly) AVCaptureVideoPreviewLayer *videoPreviewLayer;
 
-- (IBAction)clickDetectBtn:(id)sender;
+- (IBAction)onClickRestartBtn:(id)sender;
 
 @end
