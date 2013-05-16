@@ -16,6 +16,7 @@
 //#include "opencv2/nonfree/features2d.hpp"
 #include <sys/time.h>
 #import <dispatch/dispatch.h>
+#import <CoreMotion/CoreMotion.h>
 
 typedef enum {
     DetectType_min = 0,
@@ -41,16 +42,19 @@ using namespace cv;
     cv::Mat _img_object;
     
     BOOL _detected;// 是否已经检测到目标
-    BOOL _isDebugging;
+    BOOL _isDebugging;// 是否是测试状态
     
-    int captureOutput_count;
-    int processFrame_count;
-    int detectImage_count;
-    int detectingThreadCount;
+    timeval _lastDetectImageTime;// 间隔为 0.5 秒，才开始检测图片
+    timeval _lastMotionTime;
     
-    timeval _lastProcessFrameTime;
+    NSOperationQueue *_operationQueue;
     
-    dispatch_queue_t _detectImageQueue;
+    double preAccelerationX_min;
+    double preAccelerationY_min;
+    double preAccelerationZ_min;
+    double preAccelerationX_max;
+    double preAccelerationY_max;
+    double preAccelerationZ_max;
 }
 
 @synthesize captureSession = _captureSession;
@@ -58,20 +62,35 @@ using namespace cv;
 @synthesize videoOutput = _videoOutput;
 @synthesize videoPreviewLayer = _videoPreviewLayer;
 
+#pragma mark - initWithNibName
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        _isDebugging = YES;
+        
+        gettimeofday(&_lastDetectImageTime, NULL);
+        gettimeofday(&_lastMotionTime, NULL);
+        
+        _operationQueue = [[NSOperationQueue alloc] init];
+        _operationQueue.maxConcurrentOperationCount = 20;
+        
+        preAccelerationX_min = 1000;
+        preAccelerationY_min = 1000;
+        preAccelerationZ_min = 1000;
+        preAccelerationX_max = -1000;
+        preAccelerationY_max = -1000;
+        preAccelerationZ_max = -1000;
+        
+        NSString *filePath = [[NSBundle mainBundle] pathForResource:@"buddha" ofType:@"jpg"];
+        _img_object = cv::imread([filePath UTF8String], CV_LOAD_IMAGE_GRAYSCALE);
+    }
+    return self;
+}
+
 #pragma mark - viewDidLoad
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
-    NSLog(@"viewDidLoad currentThread %@", [NSThread currentThread]);
-    
-    _isDebugging = YES;
-    gettimeofday(&_lastProcessFrameTime, NULL);
-    
-    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"buddha" ofType:@"jpg"];
-    _img_object = cv::imread([filePath UTF8String], CV_LOAD_IMAGE_GRAYSCALE);
-    
-    _detectImageQueue = dispatch_queue_create("com.fred.detectImageQueue", NULL);
     
     [self createCaptureSessionForCamera:0 qualityPreset:AVCaptureSessionPresetMedium grayscale:YES];
     [_captureSession startRunning];
@@ -79,26 +98,20 @@ using namespace cv;
 
 #pragma mark - 识别获取到的 mat 数据
 - (void)processFrame:(cv::Mat&)mat videoRect:(CGRect)rect videoOrientation:(AVCaptureVideoOrientation)orientation {
-    //    NSLog(@"processFrame_count %d", processFrame_count++);
-    
+    [self detectImage:mat];
+}
+
+- (void)detectImage:(cv::Mat&)mat {
     timeval timeNow;
     gettimeofday(&timeNow, NULL);
     double elapsedTime;
-    elapsedTime = (timeNow.tv_sec - _lastProcessFrameTime.tv_sec) * 1000.0;
-    elapsedTime += (timeNow.tv_usec - _lastProcessFrameTime.tv_usec) / 1000.0;
-    //    NSLog(@"processFrame elapsedTime %f", elapsedTime);
+    elapsedTime = (timeNow.tv_sec - _lastDetectImageTime.tv_sec) * 1000.0;
+    elapsedTime += (timeNow.tv_usec - _lastDetectImageTime.tv_usec) / 1000.0;
     
-    if (elapsedTime > 2000) {
-        _lastProcessFrameTime = timeNow;
-        NSLog(@"processFrame currentThread %@", [NSThread currentThread]);
-        
-        [self detectImage:mat];
-    }
-}
-- (void)detectImage:(cv::Mat&)mat {
-    //    NSLog(@"detectImage_count %d", detectImage_count++);
-    if (_detected) {
+    if (_detected || elapsedTime < 500) {
         return;
+    } else {
+        _lastDetectImageTime = timeNow;
     }
     
     if (_isDebugging) {
@@ -111,59 +124,16 @@ using namespace cv;
         });
     }
     
-    dispatch_async(_detectImageQueue, ^(void) {
-        detectingThreadCount++;
-        NSLog(@"detectingThreadCount 开始 %d", detectingThreadCount);
-        [self detectImage_5:_img_object img_scene:mat];
-        detectingThreadCount--;
-        NSLog(@"detectingThreadCount 结束 %d", detectingThreadCount);
-    });
+    NSDictionary *argumentDictionary = [NSDictionary dictionaryWithObjectsAndKeys:
+                                        [UIImage imageWithCVMat:_img_object], @"img_object",
+                                        [UIImage imageWithCVMat:mat], @"img_scene", nil];
+    NSInvocationOperation *invocaitonOp = [[NSInvocationOperation alloc] initWithTarget:self
+                                                                               selector:@selector(detectImage_5:)
+                                                                                 object:argumentDictionary];
+    [_operationQueue addOperation:invocaitonOp];
+    [invocaitonOp release];
     
-    
-    //    dispatch_async(_detectImageQueue, ^(void) {
-    //        [self detectImage_1:_img_object img_scene:mat];
-    //    });
-    //    dispatch_async(_detectImageQueue, ^(void) {
-    //        [self detectImage_2:_img_object img_scene:mat];
-    //    });
-    //    dispatch_async(_detectImageQueue, ^(void) {
-    //        [self detectImage_3:_img_object img_scene:mat];
-    //    });
-    //    dispatch_async(_detectImageQueue, ^(void) {
-    //        [self detectImage_4:_img_object img_scene:mat];
-    //    });
-    
-    
-    //    switch (detectType) {
-    //        case DetectType_1:
-    //        {
-    //            [self detectImage_1:_img_object img_scene:mat];
-    //            break;
-    //        }
-    //        case DetectType_2:
-    //        {
-    //            [self detectImage_2:_img_object img_scene:mat];
-    //            break;
-    //        }
-    //        case DetectType_3:
-    //        {
-    //            [self detectImage_3:_img_object img_scene:mat];
-    //            break;
-    //        }
-    //        case DetectType_4:
-    //        {
-    //            [self detectImage_4:_img_object img_scene:mat];
-    //            break;
-    //        }
-    //        case DetectType_5:
-    //        {
-    //            [self detectImage_5:_img_object img_scene:mat];
-    //            break;
-    //        }
-    //        default: {
-    //            break;
-    //        }
-    //    }
+    //    FLOG(@"operationCount %d", [_operationQueue operationCount]);
 }
 
 #pragma mark - ORB BruteForceMatcher
@@ -833,15 +803,26 @@ using namespace cv;
 }
 
 #pragma mark - SurfFeatureDetector SurfDescriptorExtractor BruteForceMatcher
-- (BOOL)detectImage_5:(cv::Mat&)img_object img_scene:(cv::Mat&)img_scene {
+- (BOOL)detectImage_5:(NSDictionary *)argumentDictionary {
     std::cout << "开始 detectImage_5\n";
+    NSLog(@"%@\n", [NSThread currentThread]);
+    
+    cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
+    cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
     
     timeval taskStartTime, t1, t2;
     double elapsedTime;
     gettimeofday(&taskStartTime, NULL);
     
     if( !img_object.data || !img_scene.data ) {
-        std::cout << "没有数据\n";
+        std::cout << "img_object.data img_scene.data 没有数据\n";
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "没检测到 " << elapsedTime << endl;
+        std::cout << "耗时 " << elapsedTime << endl;
+        NSLog(@"%@\n", [NSThread currentThread]);
+        
         return NO;
     }
     
@@ -856,6 +837,14 @@ using namespace cv;
     //        cout<< "keypoints_object.size() " << keypoints_object.size() << endl;
     //        cout<< "keypoints_scene.size() " << keypoints_scene.size() << endl;
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
+        std::cout << "keypoints_object.size() keypoints_scene.size() 为 0\n";
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "没检测到 " << elapsedTime << endl;
+        std::cout << "耗时 " << elapsedTime << endl;
+        NSLog(@"%@\n", [NSThread currentThread]);
+        
         return NO;
     }
     gettimeofday(&t2, NULL);
@@ -881,6 +870,14 @@ using namespace cv;
     matcher.match( descriptors_object, descriptors_scene, matches );
     //        cout<< "matches.size() " << matches.size() << endl;
     if (matches.size() == 0) {
+        std::cout << "matches.size() 为 0\n";
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "没检测到 " << elapsedTime << endl;
+        std::cout << "耗时 " << elapsedTime << endl;
+        NSLog(@"%@\n", [NSThread currentThread]);
+        
         return NO;
     }
     gettimeofday(&t2, NULL);
@@ -911,6 +908,14 @@ using namespace cv;
     }
     //        cout<< "good_matches.size() " << good_matches.size() << endl;
     if (good_matches.size() == 0) {
+        std::cout << "good_matches.size() 为 0\n";
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "没检测到 " << elapsedTime << endl;
+        std::cout << "耗时 " << elapsedTime << endl;
+        NSLog(@"%@\n", [NSThread currentThread]);
+        
         return NO;
     }
     
@@ -989,14 +994,20 @@ using namespace cv;
         }
     }
     
-    gettimeofday(&t2, NULL);
-    elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
-    elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
-    std::cout << "总耗时 " << elapsedTime << endl;
-    
     if (exist) {
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
     }
+    
+    gettimeofday(&t2, NULL);
+    elapsedTime = (t2.tv_sec - taskStartTime.tv_sec) * 1000.0;
+    elapsedTime += (t2.tv_usec - taskStartTime.tv_usec) / 1000.0;
+    if (exist) {
+        std::cout << "检测到了 " << elapsedTime << endl;
+    } else {
+        std::cout << "没检测到 " << elapsedTime << endl;
+    }
+    std::cout << "耗时 " << elapsedTime << endl;
+    NSLog(@"%@\n", [NSThread currentThread]);
     
     return exist;
 }
@@ -1005,7 +1016,7 @@ using namespace cv;
     // 获取摄像头
     NSArray* devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
     if ([devices count] == 0) {
-        NSLog(@"No video capture devices found");
+        FLOG(@"No video capture devices found");
         return NO;
     }
     _captureDevice = [[devices objectAtIndex:camera] retain];
@@ -1056,8 +1067,6 @@ using namespace cv;
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
     NSAutoreleasePool* localpool = [[NSAutoreleasePool alloc] init];
     
-    //    NSLog(@"captureOutput_count %d", captureOutput_count++);
-    
     CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     OSType format = CVPixelBufferGetPixelFormatType(pixelBuffer);
     CGRect videoRect = CGRectMake(0.0f, 0.0f, CVPixelBufferGetWidth(pixelBuffer), CVPixelBufferGetHeight(pixelBuffer));
@@ -1098,7 +1107,7 @@ using namespace cv;
     [_imageView_scene release];
     [_restartBtn release];
     [_imageView_object release];
-    dispatch_release(_detectImageQueue);
+    [_operationQueue release];
     [super dealloc];
 }
 
@@ -1116,7 +1125,98 @@ using namespace cv;
         _detected = YES;
         _restartBtn.hidden = NO;
         [_restartBtn setTitle:message forState:UIControlStateNormal];
+        [_operationQueue cancelAllOperations];
+        
+        for (NSInvocationOperation *operation in _operationQueue.operations) {
+            [operation cancel];
+        }
+        
+        //        FLOG(@"检测到后剩下的 operation %d", [_operationQueue operationCount]);
     });
 }
+
+#pragma mark - 重力感应
+- (CMMotionManager *)motionManager
+{
+    CMMotionManager *motionManager = nil;
+    id appDelegate = [UIApplication sharedApplication].delegate;
+    if ([appDelegate respondsToSelector:@selector(motionManager)]) {
+        motionManager = [appDelegate motionManager];
+    }
+    return motionManager;
+}
+- (void)startMyMotionDetect
+{
+    CMAccelerometerHandler handler = ^(CMAccelerometerData *accelerometerData, NSError *error) {
+        if (preAccelerationX_min >= accelerometerData.acceleration.x) {
+            preAccelerationX_min = accelerometerData.acceleration.x;
+        }
+        if (preAccelerationX_max < accelerometerData.acceleration.x) {
+            preAccelerationX_max = accelerometerData.acceleration.x;
+        }
+        if (preAccelerationY_min >= accelerometerData.acceleration.y) {
+            preAccelerationY_min = accelerometerData.acceleration.y;
+        }
+        if (preAccelerationY_max < accelerometerData.acceleration.y) {
+            preAccelerationY_max = accelerometerData.acceleration.y;
+        }
+        if (preAccelerationZ_min >= accelerometerData.acceleration.z) {
+            preAccelerationZ_min = accelerometerData.acceleration.z;
+        }
+        if (preAccelerationZ_max < accelerometerData.acceleration.z) {
+            preAccelerationZ_max = accelerometerData.acceleration.z;
+        }
+        
+        timeval timeNow;
+        gettimeofday(&timeNow, NULL);
+        double elapsedTime;
+        elapsedTime = (timeNow.tv_sec - _lastMotionTime.tv_sec) * 1000.0;
+        elapsedTime += (timeNow.tv_usec - _lastMotionTime.tv_usec) / 1000.0;
+        
+        if (elapsedTime > 500) {
+            _lastMotionTime = timeNow;
+            
+            std::cout
+            << "加速度 "
+            << abs(preAccelerationX_max - preAccelerationX_min) << " "
+            << abs(preAccelerationY_max - preAccelerationY_min) << " "
+            << abs(preAccelerationZ_max - preAccelerationZ_min) << " "
+            << std::endl;
+            
+            double limit = 0.1;
+            if (abs(preAccelerationX_max - preAccelerationX_min) > limit ||
+                abs(preAccelerationY_max - preAccelerationY_min) > limit ||
+                abs(preAccelerationZ_max - preAccelerationZ_min) > limit)
+            {
+                NSLog(@"加速了");
+                [_operationQueue cancelAllOperations];
+                for (NSInvocationOperation *operation in _operationQueue.operations) {
+                    [operation cancel];
+                }
+            }
+            
+            preAccelerationX_min = 1000;
+            preAccelerationY_min = 1000;
+            preAccelerationZ_min = 1000;
+            preAccelerationX_max = -1000;
+            preAccelerationY_max = -1000;
+            preAccelerationZ_max = -1000;
+
+        }
+    };
+    
+    [self.motionManager startAccelerometerUpdatesToQueue:[[NSOperationQueue alloc] init] withHandler:handler];
+}
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [self startMyMotionDetect];
+}
+- (void)viewDidDisappear:(BOOL)animated
+{
+    [super viewDidDisappear:animated];
+    [self.motionManager stopAccelerometerUpdates];
+}
+
 
 @end

@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 
-@interface ViewController : UIViewController<AVCaptureVideoDataOutputSampleBufferDelegate, UITextFieldDelegate> {
+@interface ViewController : UIViewController<AVCaptureVideoDataOutputSampleBufferDelegate> {
     AVCaptureSession *_captureSession;
     AVCaptureDevice *_captureDevice;
     AVCaptureVideoDataOutput *_videoOutput;
