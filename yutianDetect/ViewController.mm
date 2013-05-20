@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #import <dispatch/dispatch.h>
 #import <CoreMotion/CoreMotion.h>
+#import <QuartzCore/QuartzCore.h>
 
 typedef enum {
     DetectType_min = 0,
@@ -41,11 +42,9 @@ using namespace cv;
     DetectType detectType;
     cv::Mat _img_object;
     
-    BOOL _detected;// 是否已经检测到目标
     BOOL _isDebugging;// 是否是测试状态
     
     timeval _lastDetectImageTime;// 间隔为 0.5 秒，才开始检测图片
-    timeval _lastMotionTime;
     
     NSOperationQueue *_detectQueue;
     
@@ -55,8 +54,6 @@ using namespace cv;
     double preAccelerationX_max;
     double preAccelerationY_max;
     double preAccelerationZ_max;
-    
-    NSObject *_detectedMutex;
 }
 
 @synthesize captureSession = _captureSession;
@@ -64,19 +61,24 @@ using namespace cv;
 @synthesize videoOutput = _videoOutput;
 @synthesize videoPreviewLayer = _videoPreviewLayer;
 
+@synthesize detected = _detected;
+@synthesize lastMotionTime = _lastMotionTime;
+
 #pragma mark - initWithNibName
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
         _isDebugging = YES;
         
-        _detectedMutex = [[NSObject alloc] init];
+        self.detected = [NSNumber numberWithBool:NO];
+        timeval timeNow;
+        gettimeofday(&timeNow, NULL);
+        self.lastMotionTime = [NSNumber numberWithDouble:timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0];
         
         gettimeofday(&_lastDetectImageTime, NULL);
-        gettimeofday(&_lastMotionTime, NULL);
         
         _detectQueue = [[NSOperationQueue alloc] init];
-        _detectQueue.maxConcurrentOperationCount = 10;
+        _detectQueue.maxConcurrentOperationCount = 4;
         
         preAccelerationX_min = 1000;
         preAccelerationY_min = 1000;
@@ -96,6 +98,8 @@ using namespace cv;
 {
     [super viewDidLoad];
     
+    _imageView_scene.layer.transform =  CATransform3DMakeRotation(M_PI/2, 0, 0, 1);
+    
     [self createCaptureSessionForCamera:0 qualityPreset:AVCaptureSessionPresetMedium grayscale:YES];
     [_captureSession startRunning];
 }
@@ -106,8 +110,8 @@ using namespace cv;
 }
 - (void)showResultImage:(UIImage *)image {
     if (_isDebugging) {
-        @synchronized(_detectedMutex) {
-            if (!_detected) {
+        @synchronized(self.detected) {
+            if (![self.detected boolValue]) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     _imageView_result.image = image;
                 });
@@ -122,7 +126,7 @@ using namespace cv;
     elapsedTime = (timeNow.tv_sec - _lastDetectImageTime.tv_sec) * 1000.0;
     elapsedTime += (timeNow.tv_usec - _lastDetectImageTime.tv_usec) / 1000.0;
     
-    if (_detected || elapsedTime < 500) {
+    if ([self.detected boolValue] || elapsedTime < 500 || [_detectQueue operationCount] >= [_detectQueue maxConcurrentOperationCount]) {
         return;
     } else {
         _lastDetectImageTime = timeNow;
@@ -138,35 +142,38 @@ using namespace cv;
         });
     }
     
+    cv::transpose(mat, mat);
+    cv::flip(mat, mat, 1);
+    
     NSDictionary *argumentDictionary = [NSDictionary dictionaryWithObjectsAndKeys:
                                         [UIImage imageWithCVMat:_img_object], @"img_object",
                                         [UIImage imageWithCVMat:mat], @"img_scene", nil];
     NSInvocationOperation *invocaitonOp = nil;
     
-//    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-//                                                         selector:@selector(detectImage_1:)
-//                                                           object:argumentDictionary] autorelease];
-//    [_detectQueue addOperation:invocaitonOp];
-    
+    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+    //                                                         selector:@selector(detectImage_1:)
+    //                                                           object:argumentDictionary] autorelease];
+    //    [_detectQueue addOperation:invocaitonOp];
+    //
     invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
                                                          selector:@selector(detectImage_2:)
                                                            object:argumentDictionary] autorelease];
     [_detectQueue addOperation:invocaitonOp];
-//
-//    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-//                                                         selector:@selector(detectImage_3:)
-//                                                           object:argumentDictionary] autorelease];
-//    [_detectQueue addOperation:invocaitonOp];
-//
-//    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-//                                                         selector:@selector(detectImage_4:)
-//                                                           object:argumentDictionary] autorelease];
-//    [_detectQueue addOperation:invocaitonOp];
-//
-//    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-//                                                         selector:@selector(detectImage_5:)
-//                                                           object:argumentDictionary] autorelease];
-//    [_detectQueue addOperation:invocaitonOp];
+    //
+    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+    //                                                         selector:@selector(detectImage_3:)
+    //                                                           object:argumentDictionary] autorelease];
+    //    [_detectQueue addOperation:invocaitonOp];
+    //
+    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+    //                                                         selector:@selector(detectImage_4:)
+    //                                                           object:argumentDictionary] autorelease];
+    //    [_detectQueue addOperation:invocaitonOp];
+    //
+    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+    //                                                         selector:@selector(detectImage_5:)
+    //                                                           object:argumentDictionary] autorelease];
+    //    [_detectQueue addOperation:invocaitonOp];
 }
 
 #pragma mark - ORB BruteForceMatcher
@@ -302,7 +309,9 @@ using namespace cv;
 
 #pragma mark - FastFeatureDetector BriefDescriptorExtractor BruteForceMatcher
 - (BOOL)detectImage_2:(NSDictionary *)argumentDictionary {
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
     
     timeval taskStartTime, taskStopTime;
@@ -317,7 +326,9 @@ using namespace cv;
     FastFeatureDetector detector(15);
     
     std::vector<KeyPoint> keypoints_object, keypoints_scene;
+    if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_object, keypoints_object );
+    if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_scene, keypoints_scene );
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
         return NO;;
@@ -325,21 +336,23 @@ using namespace cv;
     
     //-- Step 2: Calculate descriptors (feature vectors)
     BriefDescriptorExtractor extractor;
-    
     Mat descriptors_object, descriptors_scene;
+    if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_object, keypoints_object, descriptors_object );
+    if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_scene, keypoints_scene, descriptors_scene );
     
     //-- Step 3: Matching descriptor vectors using FLANN matcher
     BruteForceMatcher< Hamming > matcher;
-    
     std::vector< DMatch > matches;
+    if ([self shouldStopDetect]) {return NO;}
     matcher.match( descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
         return NO;;
     }
     
     //-- Quick calculation of max and min distances between keypoints
+    if ([self shouldStopDetect]) {return NO;}
     double max_dist = 0; double min_dist = 100;
     for( int i = 0; i < descriptors_object.rows; i++ ) {
         double dist = matches[i].distance;
@@ -352,6 +365,7 @@ using namespace cv;
     }
     
     //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+    if ([self shouldStopDetect]) {return NO;}
     std::vector< DMatch > good_matches;
     for( int i = 0; i < descriptors_object.rows; i++ ) {
         if( matches[i].distance < 3*min_dist ) {
@@ -363,6 +377,7 @@ using namespace cv;
     }
     
     //-- Localize the object from img_1 in img_2
+    if ([self shouldStopDetect]) {return NO;}
     std::vector<Point2f> obj;
     std::vector<Point2f> scene;
     for( size_t i = 0; i < good_matches.size(); i++ )
@@ -372,6 +387,7 @@ using namespace cv;
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
     
+    if ([self shouldStopDetect]) {return NO;}
     Mat H = findHomography( obj, scene, CV_RANSAC );
     
     //-- Get the corners from the image_1 ( the object to be "detected" )
@@ -393,6 +409,7 @@ using namespace cv;
     }
     
     // 画关键点
+    if ([self shouldStopDetect]) {return NO;}
     Mat img_matches;
     drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
                 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
@@ -622,7 +639,7 @@ using namespace cv;
     if (good_matches.size() == 0) {
         return NO;;
     }
-
+    
     //-- Localize the object from img_1 in img_2
     std::vector<Point2f> obj;
     std::vector<Point2f> scene;
@@ -694,7 +711,9 @@ using namespace cv;
 
 #pragma mark - SurfFeatureDetector SurfDescriptorExtractor BruteForceMatcher
 - (BOOL)detectImage_5:(NSDictionary *)argumentDictionary {
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
     
     timeval taskStartTime, taskStopTime;
@@ -708,9 +727,10 @@ using namespace cv;
     //-- Step 1: Detect the keypoints using SURF Detector
     int minHessian = 1600; //最小 400，命中率高，速度慢
     SurfFeatureDetector detector( minHessian );
-    
     std::vector<KeyPoint> keypoints_object, keypoints_scene;
+    if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_object, keypoints_object );
+    if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_scene, keypoints_scene );
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
         return NO;
@@ -719,18 +739,22 @@ using namespace cv;
     //-- Step 2: Calculate descriptors (feature vectors)
     SurfDescriptorExtractor extractor;
     Mat descriptors_object, descriptors_scene;
+    if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_object, keypoints_object, descriptors_object );
+    if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_scene, keypoints_scene, descriptors_scene );
     
     //-- Step 3: Matching descriptor vectors using FLANN matcher
     BruteForceMatcher< L2<float> > matcher;
     std::vector< DMatch > matches;
+    if ([self shouldStopDetect]) {return NO;}
     matcher.match( descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
         return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
+    if ([self shouldStopDetect]) {return NO;}
     double max_dist = 0; double min_dist = 100;
     for( int i = 0; i < descriptors_object.rows; i++ ) {
         double dist = matches[i].distance;
@@ -743,6 +767,7 @@ using namespace cv;
     }
     
     //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+    if ([self shouldStopDetect]) {return NO;}
     std::vector< DMatch > good_matches;
     for( int i = 0; i < descriptors_object.rows; i++ ) {
         if( matches[i].distance < 3*min_dist ) {
@@ -752,8 +777,9 @@ using namespace cv;
     if (good_matches.size() == 0) {
         return NO;
     }
-
+    
     //-- Localize the object from img_1 in img_2
+    if ([self shouldStopDetect]) {return NO;}
     std::vector<Point2f> obj;
     std::vector<Point2f> scene;
     for( size_t i = 0; i < good_matches.size(); i++ )
@@ -763,9 +789,11 @@ using namespace cv;
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
     
+    if ([self shouldStopDetect]) {return NO;}
     Mat H = findHomography( obj, scene, CV_RANSAC );
     
     //-- Get the corners from the image_1 ( the object to be "detected" )
+    if ([self shouldStopDetect]) {return NO;}
     std::vector<Point2f> obj_corners(4);
     obj_corners[0] = cvPoint(0,0);
     obj_corners[1] = cvPoint( img_object.cols, 0 );
@@ -784,6 +812,7 @@ using namespace cv;
     }
     
     // 画关键点
+    if ([self shouldStopDetect]) {return NO;}
     Mat img_matches;
     drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
                 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
@@ -815,7 +844,7 @@ using namespace cv;
         gettimeofday(&taskStopTime, NULL);
         elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
         elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
-
+        
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
     }
     
@@ -824,17 +853,17 @@ using namespace cv;
 
 #pragma mark -
 - (IBAction)onClickRestartBtn:(id)sender {
-    @synchronized(_detectedMutex) {
-        _detected = NO;
+    @synchronized(self.detected) {
+        self.detected = [NSNumber numberWithBool:NO];
         _restartBtn.hidden = YES;
     }
 }
 - (void)hasDetected:(NSString *)message {
     FLOG(@"%@", message);
-    @synchronized(_detectedMutex) {
-        if (!_detected) {
+    @synchronized(self.detected) {
+        if (![self.detected boolValue]) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                _detected = YES;
+                self.detected = [NSNumber numberWithBool:YES];
                 _restartBtn.hidden = NO;
                 [_restartBtn setTitle:message forState:UIControlStateNormal];
                 
@@ -844,6 +873,26 @@ using namespace cv;
                 }
                 NSLog(@"检测到了, left %d", _detectQueue.operationCount);
             });
+        }
+    }
+}
+- (BOOL)shouldStopDetect {
+    @synchronized(self.detected) {
+        if ([self.detected boolValue]) {
+            return YES;
+        }
+        
+        @synchronized(self.lastMotionTime) {
+            timeval timeNow;
+            gettimeofday(&timeNow, NULL);
+            double elapsedTime;
+            elapsedTime = timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0 - [self.lastMotionTime doubleValue];
+            
+            if (elapsedTime < 0) {
+                return YES;
+            } else {
+                return NO;
+            }
         }
     }
 }
@@ -892,11 +941,10 @@ using namespace cv;
         timeval timeNow;
         gettimeofday(&timeNow, NULL);
         double elapsedTime;
-        elapsedTime = (timeNow.tv_sec - _lastMotionTime.tv_sec) * 1000.0;
-        elapsedTime += (timeNow.tv_usec - _lastMotionTime.tv_usec) / 1000.0;
+        elapsedTime = timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0 - [self.lastMotionTime doubleValue];
         
-        if (elapsedTime > 500) {
-            _lastMotionTime = timeNow;
+        if (elapsedTime > 0.5) {
+            self.lastMotionTime = [NSNumber numberWithDouble:timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0];
             
             std::cout
             << "加速度 "
@@ -1025,7 +1073,9 @@ using namespace cv;
     [_restartBtn release];
     [_imageView_object release];
     [_detectQueue release];
-    [_detectedMutex release];
+    [_detected release];
+    [_lastMotionTime release];
     [super dealloc];
 }
+
 @end

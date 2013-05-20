@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B60896C4174A2F1C006120A8 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60896C3174A2F1C006120A8 /* QuartzCore.framework */; };
 		B6125E381727F5530077F5AC /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E371727F5530077F5AC /* UIKit.framework */; };
 		B6125E3A1727F5530077F5AC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E391727F5530077F5AC /* Foundation.framework */; };
 		B6125E3C1727F5530077F5AC /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E3B1727F5530077F5AC /* CoreGraphics.framework */; };
@@ -30,6 +31,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		B60896C3174A2F1C006120A8 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		B6125E341727F5530077F5AC /* yutianDetect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = yutianDetect.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6125E371727F5530077F5AC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		B6125E391727F5530077F5AC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -63,6 +65,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B60896C4174A2F1C006120A8 /* QuartzCore.framework in Frameworks */,
 				B6E2023F1743D58D00C23979 /* CoreMotion.framework in Frameworks */,
 				B6C584B4172807030071E9E5 /* ImageIO.framework in Frameworks */,
 				B6C584B2172806F50071E9E5 /* CoreVideo.framework in Frameworks */,
@@ -99,6 +102,7 @@
 		B6125E361727F5530077F5AC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B60896C3174A2F1C006120A8 /* QuartzCore.framework */,
 				B6C584AD172806DA0071E9E5 /* AVFoundation.framework */,
 				B6125E3B1727F5530077F5AC /* CoreGraphics.framework */,
 				B6C584AF172806ED0071E9E5 /* CoreMedia.framework */,
