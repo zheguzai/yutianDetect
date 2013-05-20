@@ -19,6 +19,8 @@
     IBOutlet UIImageView *_imageView_object;
     IBOutlet UIImageView *_imageView_scene;
     IBOutlet UIButton *_restartBtn;
+    
+    IBOutlet UIView *_resultRectView;
 }
 
 @property (nonatomic, readonly) AVCaptureSession *captureSession;

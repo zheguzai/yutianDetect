@@ -204,7 +204,7 @@ using namespace cv;
     orb_scene(img_scene, Mat(), keypoints_scene, descriptors_scene, true);
     
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Step 3: Matching descriptor vectors using FLANN matcher
@@ -331,7 +331,7 @@ using namespace cv;
     if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_scene, keypoints_scene );
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Step 2: Calculate descriptors (feature vectors)
@@ -348,7 +348,7 @@ using namespace cv;
     if ([self shouldStopDetect]) {return NO;}
     matcher.match( descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
@@ -373,7 +373,7 @@ using namespace cv;
         }
     }
     if (good_matches.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Localize the object from img_1 in img_2
@@ -408,19 +408,19 @@ using namespace cv;
         }
     }
     
-    // 画关键点
-    if ([self shouldStopDetect]) {return NO;}
-    Mat img_matches;
-    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-    Point2f offset( (float)img_object.cols, 0);
-    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+//    // 画关键点
+//    if ([self shouldStopDetect]) {return NO;}
+//    Mat img_matches;
+//    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
+//                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+//                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+//    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+//    Point2f offset( (float)img_object.cols, 0);
+//    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+//    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
     
     if (exist) {
         if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
@@ -444,6 +444,12 @@ using namespace cv;
         std::cout << "总耗时 " << elapsedTime << endl;
         
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
+        
+        cout<< scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << " feeffffffff";
+        [self showResultRect:CGRectMake(scene_corners[0].x,
+                                        scene_corners[0].y,
+                                        scene_corners[1].x - scene_corners[0].x,
+                                        scene_corners[2].y - scene_corners[1].y)];
     }
     
     return exist;
@@ -469,7 +475,7 @@ using namespace cv;
     detector.detect( img_object, keypoints_object );
     detector.detect( img_scene, keypoints_scene );
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Step 2: Calculate descriptors (feature vectors)
@@ -484,7 +490,7 @@ using namespace cv;
     matcher.match( descriptors_object, descriptors_scene, matches );
     //        cout<< "matches.size() " << matches.size() << endl;
     if (matches.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
@@ -507,7 +513,7 @@ using namespace cv;
         }
     }
     if (good_matches.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Localize the object from img_1 in img_2
@@ -600,7 +606,7 @@ using namespace cv;
     detector.detect( img_object, keypoints_object );
     detector.detect( img_scene, keypoints_scene );
     if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Step 2: Calculate descriptors (feature vectors)
@@ -614,7 +620,7 @@ using namespace cv;
     std::vector< DMatch > matches;
     matcher.match( descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
@@ -637,7 +643,7 @@ using namespace cv;
         }
     }
     if (good_matches.size() == 0) {
-        return NO;;
+        return NO;
     }
     
     //-- Localize the object from img_1 in img_2
@@ -852,10 +858,22 @@ using namespace cv;
 }
 
 #pragma mark -
+- (void)showResultRect:(CGRect)rect {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        _resultRectView.hidden = NO;
+        _resultRectView.frame = rect;
+        
+        [self.view bringSubviewToFront:_restartBtn];
+    });
+}
 - (IBAction)onClickRestartBtn:(id)sender {
     @synchronized(self.detected) {
         self.detected = [NSNumber numberWithBool:NO];
         _restartBtn.hidden = YES;
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            _resultRectView.hidden = YES;
+        });
     }
 }
 - (void)hasDetected:(NSString *)message {
@@ -1075,6 +1093,7 @@ using namespace cv;
     [_detectQueue release];
     [_detected release];
     [_lastMotionTime release];
+    [_resultRectView release];
     [super dealloc];
 }
 
