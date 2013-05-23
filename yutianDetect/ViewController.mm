@@ -39,8 +39,7 @@ using namespace cv;
 @end
 
 @implementation ViewController {
-    DetectType detectType;
-    cv::Mat _img_object;
+    DetectType _detectType;
     
     BOOL _isDebugging;// 是否是测试状态
     
@@ -54,6 +53,10 @@ using namespace cv;
     double preAccelerationX_max;
     double preAccelerationY_max;
     double preAccelerationZ_max;
+    
+    cv::Mat _img_object;
+    std::vector<KeyPoint> _keypoints_object;
+    Mat _descriptors_object;
 }
 
 @synthesize captureSession = _captureSession;
@@ -61,16 +64,14 @@ using namespace cv;
 @synthesize videoOutput = _videoOutput;
 @synthesize videoPreviewLayer = _videoPreviewLayer;
 
-@synthesize detected = _detected;
 @synthesize lastMotionTime = _lastMotionTime;
 
-#pragma mark - initWithNibName
+#pragma mark - init
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
         _isDebugging = YES;
         
-        self.detected = [NSNumber numberWithBool:NO];
         timeval timeNow;
         gettimeofday(&timeNow, NULL);
         self.lastMotionTime = [NSNumber numberWithDouble:timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0];
@@ -87,15 +88,14 @@ using namespace cv;
         preAccelerationY_max = -1000;
         preAccelerationZ_max = -1000;
         
-        NSString *filePath = [[NSBundle mainBundle] pathForResource:@"buddha" ofType:@"jpg"];
-        _img_object = cv::imread([filePath UTF8String], CV_LOAD_IMAGE_GRAYSCALE);
+        _detectType = DetectType_2;
+        if (![self prepareImageObject]) {
+            exit(0);
+        }
     }
     return self;
 }
-
-#pragma mark - viewDidLoad
-- (void)viewDidLoad
-{
+- (void)viewDidLoad {
     [super viewDidLoad];
     
     _imageView_scene.layer.transform =  CATransform3DMakeRotation(M_PI/2, 0, 0, 1);
@@ -103,7 +103,84 @@ using namespace cv;
     [self createCaptureSessionForCamera:0 qualityPreset:AVCaptureSessionPresetMedium grayscale:YES];
     [_captureSession startRunning];
 }
-
+- (BOOL)prepareImageObject {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"buddha" ofType:@"jpg"];
+    _img_object = cv::imread([filePath UTF8String], CV_LOAD_IMAGE_GRAYSCALE);
+    if (!_img_object.data) {
+        return NO;
+    }
+    
+    switch (_detectType) {
+        case DetectType_1: {
+            //-- Step 1 -- Step 2: 检测关键点，获取 descriptor
+            ORB orb_object(30,ORB::CommonParams(1.2,1));
+            orb_object(_img_object, Mat(), _keypoints_object, _descriptors_object, false);
+            if (_keypoints_object.size() <= 0) {
+                return NO;
+            }
+            break;
+        }
+        case DetectType_2: {
+            //-- Step 1: Detect the keypoints using SURF Detector
+            FastFeatureDetector detector(15);
+            detector.detect( _img_object, _keypoints_object );
+            if (_keypoints_object.size() <= 0) {
+                return NO;
+            }
+            
+            //-- Step 2: Calculate descriptors (feature vectors)
+            BriefDescriptorExtractor extractor;
+            extractor.compute( _img_object, _keypoints_object, _descriptors_object );
+            break;
+        }
+        case DetectType_3: {
+            //-- Step 1: Detect the keypoints using SURF Detector
+            FastFeatureDetector detector(15);
+            detector.detect( _img_object, _keypoints_object );
+            if (_keypoints_object.size() <= 0) {
+                return NO;
+            }
+            
+            //-- Step 2: Calculate descriptors (feature vectors)
+            SurfDescriptorExtractor extractor;
+            extractor.compute( _img_object, _keypoints_object, _descriptors_object );
+            break;
+        }
+        case DetectType_4: {
+            //-- Step 1: Detect the keypoints using SURF Detector
+            int minHessian = 1600; //最小 400，命中率高，速度慢
+            SurfFeatureDetector detector( minHessian );
+            detector.detect( _img_object, _keypoints_object );
+            if (_keypoints_object.size() == 0) {
+                return NO;
+            }
+            
+            //-- Step 2: Calculate descriptors (feature vectors)
+            SurfDescriptorExtractor extractor;
+            extractor.compute( _img_object, _keypoints_object, _descriptors_object );
+            break;
+        }
+        case DetectType_5: {
+            //-- Step 1: Detect the keypoints using SURF Detector
+            int minHessian = 1600; //最小 400，命中率高，速度慢
+            SurfFeatureDetector detector( minHessian );
+            detector.detect( _img_object, _keypoints_object );
+            if (_keypoints_object.size() == 0) {
+                return NO;
+            }
+            
+            //-- Step 2: Calculate descriptors (feature vectors)
+            SurfDescriptorExtractor extractor;
+            extractor.compute( _img_object, _keypoints_object, _descriptors_object );
+            break;
+        }
+        default: {
+            return NO;
+        }
+    }
+    
+    return YES;
+}
 #pragma mark - 识别获取到的 mat 数据
 - (void)processFrame:(cv::Mat&)mat videoRect:(CGRect)rect videoOrientation:(AVCaptureVideoOrientation)orientation {
     [self detectImage:mat];
@@ -115,7 +192,7 @@ using namespace cv;
     elapsedTime = (timeNow.tv_sec - _lastDetectImageTime.tv_sec) * 1000.0;
     elapsedTime += (timeNow.tv_usec - _lastDetectImageTime.tv_usec) / 1000.0;
     
-    if ([self.detected boolValue] || elapsedTime < 500 || [_detectQueue operationCount] >= [_detectQueue maxConcurrentOperationCount]) {
+    if (elapsedTime < 500 || [_detectQueue operationCount] >= [_detectQueue maxConcurrentOperationCount]) {
         return;
     } else {
         _lastDetectImageTime = timeNow;
@@ -139,74 +216,86 @@ using namespace cv;
                                         [UIImage imageWithCVMat:mat], @"img_scene", nil];
     NSInvocationOperation *invocaitonOp = nil;
     
-    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-    //                                                         selector:@selector(detectImage_1:)
-    //                                                           object:argumentDictionary] autorelease];
-    //    [_detectQueue addOperation:invocaitonOp];
-    //
-    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-                                                         selector:@selector(detectImage_2:)
-                                                           object:argumentDictionary] autorelease];
-    [_detectQueue addOperation:invocaitonOp];
-    //
-    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-    //                                                         selector:@selector(detectImage_3:)
-    //                                                           object:argumentDictionary] autorelease];
-    //    [_detectQueue addOperation:invocaitonOp];
-    //
-    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-    //                                                         selector:@selector(detectImage_4:)
-    //                                                           object:argumentDictionary] autorelease];
-    //    [_detectQueue addOperation:invocaitonOp];
-    //
-    //    invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
-    //                                                         selector:@selector(detectImage_5:)
-    //                                                           object:argumentDictionary] autorelease];
-    //    [_detectQueue addOperation:invocaitonOp];
+    switch (_detectType) {
+        case DetectType_1: {
+            invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+                                                                 selector:@selector(detectImage_1:)
+                                                                   object:argumentDictionary] autorelease];
+            [_detectQueue addOperation:invocaitonOp];
+            break;
+        }
+        case DetectType_2: {
+            invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+                                                                 selector:@selector(detectImage_2:)
+                                                                   object:argumentDictionary] autorelease];
+            [_detectQueue addOperation:invocaitonOp];
+            break;
+        }
+        case DetectType_3: {
+            invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+                                                                 selector:@selector(detectImage_3:)
+                                                                   object:argumentDictionary] autorelease];
+            [_detectQueue addOperation:invocaitonOp];
+            break;
+        }
+        case DetectType_4: {
+            invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+                                                                 selector:@selector(detectImage_4:)
+                                                                   object:argumentDictionary] autorelease];
+            [_detectQueue addOperation:invocaitonOp];
+            break;
+        }
+        case DetectType_5: {
+            invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+                                                                 selector:@selector(detectImage_5:)
+                                                                   object:argumentDictionary] autorelease];
+            [_detectQueue addOperation:invocaitonOp];
+            break;
+        }
+        default: {
+            break;
+        }
+    }
 }
 
 #pragma mark - ORB BruteForceMatcher
 - (BOOL)detectImage_1:(NSDictionary *)argumentDictionary {
-    cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
     
     timeval taskStartTime, taskStopTime;
     double elapsedTime;
     gettimeofday(&taskStartTime, NULL);
     
-    if( !img_object.data || !img_scene.data ) {
+    if(!img_scene.data) {
         return NO;
     }
     
     //-- Step 1 -- Step 2: 检测关键点，获取 descriptor
-    ORB orb_object(30,ORB::CommonParams(1.2,1));
     ORB orb_scene(100,ORB::CommonParams(1.2,1));
+    std::vector<KeyPoint> keypoints_scene;
+    Mat descriptors_scene;
     
-    std::vector<KeyPoint> keypoints_object, keypoints_scene;
-    Mat descriptors_object, descriptors_scene;
-    
-    orb_object(img_object, Mat(), keypoints_object, descriptors_object, false);
+    if ([self shouldStopDetect]) {return NO;}
     orb_scene(img_scene, Mat(), keypoints_scene);
     if (keypoints_scene.size() <= 0) {
         return NO;
     }
+    if ([self shouldStopDetect]) {return NO;}
     orb_scene(img_scene, Mat(), keypoints_scene, descriptors_scene, true);
-    
-    if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
-        return NO;
-    }
     
     //-- Step 3: Matching descriptor vectors using FLANN matcher
     BruteForceMatcher<HammingLUT>matcher;
     std::vector< DMatch > matches;
-    matcher.match( descriptors_object, descriptors_scene, matches );
+    if ([self shouldStopDetect]) {return NO;}
+    matcher.match( _descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
         return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
     double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
         double dist = matches[i].distance;
         if( dist < min_dist ) {
             min_dist = dist;
@@ -218,7 +307,7 @@ using namespace cv;
     
     //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
     std::vector< DMatch > good_matches;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
         if( matches[i].distance < 3*min_dist ) {
             good_matches.push_back( matches[i]);
         }
@@ -233,147 +322,11 @@ using namespace cv;
     for( size_t i = 0; i < good_matches.size(); i++ )
     {
         //-- Get the keypoints from the good matches
-        obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
+        obj.push_back( _keypoints_object[ good_matches[i].queryIdx ].pt );
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
-    
-    Mat H = findHomography( obj, scene, CV_RANSAC );
-    
-    //-- Get the corners from the image_1 ( the object to be "detected" )
-    std::vector<Point2f> obj_corners(4);
-    obj_corners[0] = cvPoint(0,0);
-    obj_corners[1] = cvPoint( img_object.cols, 0 );
-    obj_corners[2] = cvPoint( img_object.cols, img_object.rows );
-    obj_corners[3] = cvPoint( 0, img_object.rows );
-    
-    // 判断点是否是有效点
-    bool exist = 1;
-    std::vector<Point2f> scene_corners(4);
-    perspectiveTransform( obj_corners, scene_corners, H);
-    for (int j = 0; j < 4; j++) {
-        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) == 0) {
-            exist = 0;
-            break;
-        }
-    }
-    
-    // 画关键点
-    Mat img_matches;
-    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-    Point2f offset( (float)img_object.cols, 0);
-    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
-    
-    if (exist) {
-        if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
-            float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
-            for (int j = 1; j < 4; j++) {
-                float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
-                if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
-                    exist = 0;
-                    break;
-                }
-            }
-        } else {
-            exist = 0;
-        }
-    }
-    
-    if (exist) {
-        gettimeofday(&taskStopTime, NULL);
-        elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
-        elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
-        
-        [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
-    }
-    
-    return exist;
-}
-
-#pragma mark - FastFeatureDetector BriefDescriptorExtractor BruteForceMatcher
-- (BOOL)detectImage_2:(NSDictionary *)argumentDictionary {
-    if ([self shouldStopDetect]) {return NO;}
-    cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
-    if ([self shouldStopDetect]) {return NO;}
-    cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
-    
-    timeval taskStartTime, taskStopTime;
-    double elapsedTime;
-    gettimeofday(&taskStartTime, NULL);
-    
-    if( !img_object.data || !img_scene.data ) {
+    if (obj.size() < 4 || scene.size() < 4) {
         return NO;
-    }
-    
-    //-- Step 1: Detect the keypoints using SURF Detector
-    FastFeatureDetector detector(15);
-    
-    std::vector<KeyPoint> keypoints_object, keypoints_scene;
-    if ([self shouldStopDetect]) {return NO;}
-    detector.detect( img_object, keypoints_object );
-    if ([self shouldStopDetect]) {return NO;}
-    detector.detect( img_scene, keypoints_scene );
-    if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
-        return NO;
-    }
-    
-    //-- Step 2: Calculate descriptors (feature vectors)
-    BriefDescriptorExtractor extractor;
-    Mat descriptors_object, descriptors_scene;
-    if ([self shouldStopDetect]) {return NO;}
-    extractor.compute( img_object, keypoints_object, descriptors_object );
-    if ([self shouldStopDetect]) {return NO;}
-    extractor.compute( img_scene, keypoints_scene, descriptors_scene );
-    
-    //-- Step 3: Matching descriptor vectors using FLANN matcher
-    BruteForceMatcher< Hamming > matcher;
-    std::vector< DMatch > matches;
-    if ([self shouldStopDetect]) {return NO;}
-    matcher.match( descriptors_object, descriptors_scene, matches );
-    if (matches.size() == 0) {
-        return NO;
-    }
-    
-    //-- Quick calculation of max and min distances between keypoints
-    if ([self shouldStopDetect]) {return NO;}
-    double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
-        double dist = matches[i].distance;
-        if( dist < min_dist ) {
-            min_dist = dist;
-        }
-        if( dist > max_dist ) {
-            max_dist = dist;
-        }
-    }
-    
-    //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
-    if ([self shouldStopDetect]) {return NO;}
-    std::vector< DMatch > good_matches;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
-        if( matches[i].distance < 3*min_dist ) {
-            good_matches.push_back( matches[i]);
-        }
-    }
-    if (good_matches.size() == 0) {
-        return NO;
-    }
-    
-    //-- Localize the object from img_1 in img_2
-    if ([self shouldStopDetect]) {return NO;}
-    std::vector<Point2f> obj;
-    std::vector<Point2f> scene;
-    for( size_t i = 0; i < good_matches.size(); i++ )
-    {
-        //-- Get the keypoints from the good matches
-        obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
-        scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
     
     if ([self shouldStopDetect]) {return NO;}
@@ -382,49 +335,45 @@ using namespace cv;
     //-- Get the corners from the image_1 ( the object to be "detected" )
     std::vector<Point2f> obj_corners(4);
     obj_corners[0] = cvPoint(0,0);
-    obj_corners[1] = cvPoint( img_object.cols, 0 );
-    obj_corners[2] = cvPoint( img_object.cols, img_object.rows );
-    obj_corners[3] = cvPoint( 0, img_object.rows );
+    obj_corners[1] = cvPoint( _img_object.cols, 0 );
+    obj_corners[2] = cvPoint( _img_object.cols, _img_object.rows );
+    obj_corners[3] = cvPoint( 0, _img_object.rows );
     
     // 判断点是否是有效点
     bool exist = 1;
     std::vector<Point2f> scene_corners(4);
     perspectiveTransform( obj_corners, scene_corners, H);
     for (int j = 0; j < 4; j++) {
-        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) == 0) {
+        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) < 40) {
             exist = 0;
             break;
         }
     }
     
-//    if ([self shouldStopDetect]) {return NO;}
-//    if (_isDebugging) {
-//        // 画关键点
-//        Mat img_matches;
-//        drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-//                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-//                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-//        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-//        Point2f offset( (float)img_object.cols, 0);
-//        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-//        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-//        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-//        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-//        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
-//    }
+    if (_isDebugging) {
+        if ([self shouldStopDetect]) {return NO;}
+        // 画关键点
+        Mat img_matches;
+        drawMatches( _img_object, _keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)_img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    }
     
     if (exist) {
-        if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
-            float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
-            for (int j = 1; j < 4; j++) {
-                float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
-                if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
-                    exist = 0;
-                    break;
-                }
+        float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+        for (int j = 1; j < 4; j++) {
+            float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+            if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                exist = 0;
+                break;
             }
-        } else {
-            exist = 0;
         }
     }
     
@@ -436,11 +385,158 @@ using namespace cv;
         
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
         
-        cout<< scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << " feeffffffff";
-        [self showResultRect:CGRectMake(scene_corners[0].x,
-                                        scene_corners[0].y,
-                                        scene_corners[1].x - scene_corners[0].x,
-                                        scene_corners[2].y - scene_corners[1].y)];
+        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        [self showResultCoverViwe:CGRectMake(scene_corners[0].x,
+                                             scene_corners[0].y,
+                                             scene_corners[1].x - scene_corners[0].x,
+                                             scene_corners[2].y - scene_corners[1].y)];
+    }
+    
+    return exist;
+}
+
+#pragma mark - FastFeatureDetector BriefDescriptorExtractor BruteForceMatcher
+- (BOOL)detectImage_2:(NSDictionary *)argumentDictionary {
+    if ([self shouldStopDetect]) {return NO;}
+    cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
+    
+    timeval taskStartTime, taskStopTime;
+    double elapsedTime;
+    gettimeofday(&taskStartTime, NULL);
+    
+    if( !img_scene.data ) {
+        return NO;
+    }
+    
+    //-- Step 1: Detect the keypoints using SURF Detector
+    FastFeatureDetector detector(15);
+    std::vector<KeyPoint> keypoints_scene;
+    if ([self shouldStopDetect]) {return NO;}
+    detector.detect( img_scene, keypoints_scene );
+    if (keypoints_scene.size() == 0) {
+        return NO;
+    }
+    
+    //-- Step 2: Calculate descriptors (feature vectors)
+    BriefDescriptorExtractor extractor;
+    Mat descriptors_scene;
+    if ([self shouldStopDetect]) {return NO;}
+    extractor.compute( img_scene, keypoints_scene, descriptors_scene );
+    
+    //-- Step 3: Matching descriptor vectors using FLANN matcher
+    BruteForceMatcher< Hamming > matcher;
+    std::vector< DMatch > matches;
+    if ([self shouldStopDetect]) {return NO;}
+    matcher.match( _descriptors_object, descriptors_scene, matches );
+    if (matches.size() == 0) {
+        return NO;
+    }
+    
+    //-- Quick calculation of max and min distances between keypoints
+    if ([self shouldStopDetect]) {return NO;}
+    double max_dist = 0; double min_dist = 100;
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
+        double dist = matches[i].distance;
+        if( dist < min_dist ) {
+            min_dist = dist;
+        }
+        if( dist > max_dist ) {
+            max_dist = dist;
+        }
+    }
+    
+    //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+    if ([self shouldStopDetect]) {return NO;}
+    std::vector< DMatch > good_matches;
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
+        if( matches[i].distance < 3*min_dist ) {
+            good_matches.push_back( matches[i]);
+        }
+    }
+    if (good_matches.size() == 0) {
+        return NO;
+    }
+    
+    //-- Localize the object from img_1 in img_2
+    if ([self shouldStopDetect]) {return NO;}
+    std::vector<Point2f> obj;
+    std::vector<Point2f> scene;
+    for( size_t i = 0; i < good_matches.size(); i++ )
+    {
+        //-- Get the keypoints from the good matches
+        obj.push_back( _keypoints_object[ good_matches[i].queryIdx ].pt );
+        scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
+    }
+    if (obj.size() < 4 || scene.size() < 4) {
+        return NO;
+    }
+    
+    if ([self shouldStopDetect]) {return NO;}
+    Mat H = findHomography( obj, scene, CV_RANSAC );
+    
+    //-- Get the corners from the image_1 ( the object to be "detected" )
+    std::vector<Point2f> obj_corners(4);
+    obj_corners[0] = cvPoint(0,0);
+    obj_corners[1] = cvPoint( _img_object.cols, 0 );
+    obj_corners[2] = cvPoint( _img_object.cols, _img_object.rows );
+    obj_corners[3] = cvPoint( 0, _img_object.rows );
+    
+    // 判断点是否是有效点
+    bool exist = 1;
+    std::vector<Point2f> scene_corners(4);
+    perspectiveTransform( obj_corners, scene_corners, H);
+    for (int j = 0; j < 4; j++) {
+        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) < 40) {
+            exist = 0;
+            break;
+        }
+    }
+    
+    if (_isDebugging) {
+        if ([self shouldStopDetect]) {return NO;}
+        // 画关键点
+        Mat img_matches;
+        drawMatches( _img_object, _keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)_img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    }
+    
+    if (exist) {
+        
+        float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+        for (int j = 1; j < 4; j++) {
+            float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+            if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                exist = 0;
+                break;
+            }
+        }
+    }
+    
+    if (exist) {
+        gettimeofday(&taskStopTime, NULL);
+        elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "总耗时 " << elapsedTime << endl;
+        
+        [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
+        
+        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        [self showResultCoverViwe:
+         CGRectMake(
+                    scene_corners[0].x,
+                    (scene_corners[0].y + scene_corners[1].y) / 2,
+//                    (scene_corners[1].x + scene_corners[2].x - scene_corners[0].x - scene_corners[3].x) / 2,
+//                    (scene_corners[2].y + scene_corners[3].y + scene_corners[0].y - scene_corners[1].y) / 2)];
+                    scene_corners[1].x - scene_corners[0].x,
+                    scene_corners[2].y - scene_corners[1].y)];
     }
     
     return exist;
@@ -448,45 +544,45 @@ using namespace cv;
 
 #pragma mark - FastFeatureDetector SurfDescriptorExtractor FlannBasedMatcher
 - (BOOL)detectImage_3:(NSDictionary *)argumentDictionary {
-    cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
     
     timeval taskStartTime, taskStopTime;
     double elapsedTime;
     gettimeofday(&taskStartTime, NULL);
     
-    if( !img_object.data || !img_scene.data ) {
+    if( !img_scene.data ) {
         return NO;
     }
     
     //-- Step 1: Detect the keypoints using SURF Detector
     FastFeatureDetector detector(15);
-    
-    std::vector<KeyPoint> keypoints_object, keypoints_scene;
-    detector.detect( img_object, keypoints_object );
+    std::vector<KeyPoint> keypoints_scene;
+    if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_scene, keypoints_scene );
-    if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
+    if (keypoints_scene.size() == 0) {
         return NO;
     }
     
     //-- Step 2: Calculate descriptors (feature vectors)
     SurfDescriptorExtractor extractor;
-    Mat descriptors_object, descriptors_scene;
-    extractor.compute( img_object, keypoints_object, descriptors_object );
+    Mat descriptors_scene;
+    if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_scene, keypoints_scene, descriptors_scene );
     
     //-- Step 3: Matching descriptor vectors using FLANN matcher
     FlannBasedMatcher matcher;
     std::vector< DMatch > matches;
-    matcher.match( descriptors_object, descriptors_scene, matches );
-    //        cout<< "matches.size() " << matches.size() << endl;
+    if ([self shouldStopDetect]) {return NO;}
+    matcher.match( _descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
         return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
     double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
+    if ([self shouldStopDetect]) {return NO;}
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
         double dist = matches[i].distance;
         if( dist < min_dist ) {
             min_dist = dist;
@@ -498,7 +594,8 @@ using namespace cv;
     
     //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
     std::vector< DMatch > good_matches;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
+    if ([self shouldStopDetect]) {return NO;}
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
         if( matches[i].distance < 3*min_dist ) {
             good_matches.push_back( matches[i]);
         }
@@ -510,58 +607,62 @@ using namespace cv;
     //-- Localize the object from img_1 in img_2
     std::vector<Point2f> obj;
     std::vector<Point2f> scene;
+    if ([self shouldStopDetect]) {return NO;}
     for( size_t i = 0; i < good_matches.size(); i++ )
     {
         //-- Get the keypoints from the good matches
-        obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
+        obj.push_back( _keypoints_object[ good_matches[i].queryIdx ].pt );
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
+    if (obj.size() < 4 || scene.size() < 4) {
+        return NO;
+    }
     
+    if ([self shouldStopDetect]) {return NO;}
     Mat H = findHomography( obj, scene, CV_RANSAC );
     
     //-- Get the corners from the image_1 ( the object to be "detected" )
     std::vector<Point2f> obj_corners(4);
     obj_corners[0] = cvPoint(0,0);
-    obj_corners[1] = cvPoint( img_object.cols, 0 );
-    obj_corners[2] = cvPoint( img_object.cols, img_object.rows );
-    obj_corners[3] = cvPoint( 0, img_object.rows );
+    obj_corners[1] = cvPoint( _img_object.cols, 0 );
+    obj_corners[2] = cvPoint( _img_object.cols, _img_object.rows );
+    obj_corners[3] = cvPoint( 0, _img_object.rows );
     
     // 判断点是否是有效点
     bool exist = 1;
     std::vector<Point2f> scene_corners(4);
     perspectiveTransform( obj_corners, scene_corners, H);
     for (int j = 0; j < 4; j++) {
-        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) == 0) {
+        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) < 40) {
             exist = 0;
             break;
         }
     }
     
-    // 画关键点
-    Mat img_matches;
-    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-    Point2f offset( (float)img_object.cols, 0);
-    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    if (_isDebugging) {
+        if ([self shouldStopDetect]) {return NO;}
+        // 画关键点
+        Mat img_matches;
+        drawMatches( _img_object, _keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)_img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    }
     
     if (exist) {
-        if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
-            float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
-            for (int j = 1; j < 4; j++) {
-                float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
-                if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
-                    exist = 0;
-                    break;
-                }
+        float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+        for (int j = 1; j < 4; j++) {
+            float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+            if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                exist = 0;
+                break;
             }
-        } else {
-            exist = 0;
         }
     }
     
@@ -569,8 +670,15 @@ using namespace cv;
         gettimeofday(&taskStopTime, NULL);
         elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
         elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "总耗时 " << elapsedTime << endl;
         
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
+        
+        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        [self showResultCoverViwe:CGRectMake(scene_corners[0].x,
+                                             scene_corners[0].y,
+                                             scene_corners[1].x - scene_corners[0].x,
+                                             scene_corners[2].y - scene_corners[1].y)];
     }
     
     return exist;
@@ -578,45 +686,46 @@ using namespace cv;
 
 #pragma mark - SurfFeatureDetector SurfDescriptorExtractor FlannBasedMatcher
 - (BOOL)detectImage_4:(NSDictionary *)argumentDictionary {
-    cv::Mat img_object = [((UIImage *)[argumentDictionary objectForKey:@"img_object"]) CVGrayscaleMat];
+    if ([self shouldStopDetect]) {return NO;}
     cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
     
     timeval taskStartTime, taskStopTime;
     double elapsedTime;
     gettimeofday(&taskStartTime, NULL);
     
-    if( !img_object.data || !img_scene.data ) {
+    if(!img_scene.data ) {
         return NO;
     }
     
     //-- Step 1: Detect the keypoints using SURF Detector
     int minHessian = 1600; //最小 400，命中率高，速度慢
     SurfFeatureDetector detector( minHessian );
-    
-    std::vector<KeyPoint> keypoints_object, keypoints_scene;
-    detector.detect( img_object, keypoints_object );
+    std::vector<KeyPoint> keypoints_scene;
+    if ([self shouldStopDetect]) {return NO;}
     detector.detect( img_scene, keypoints_scene );
-    if (keypoints_object.size() == 0 || keypoints_scene.size() == 0) {
+    if (keypoints_scene.size() == 0) {
         return NO;
     }
     
     //-- Step 2: Calculate descriptors (feature vectors)
     SurfDescriptorExtractor extractor;
-    Mat descriptors_object, descriptors_scene;
-    extractor.compute( img_object, keypoints_object, descriptors_object );
+    Mat descriptors_scene;
+    if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_scene, keypoints_scene, descriptors_scene );
     
     //-- Step 3: Matching descriptor vectors using FLANN matcher
     FlannBasedMatcher matcher;
     std::vector< DMatch > matches;
-    matcher.match( descriptors_object, descriptors_scene, matches );
+    if ([self shouldStopDetect]) {return NO;}
+    matcher.match( _descriptors_object, descriptors_scene, matches );
     if (matches.size() == 0) {
         return NO;
     }
     
     //-- Quick calculation of max and min distances between keypoints
     double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
+    if ([self shouldStopDetect]) {return NO;}
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
         double dist = matches[i].distance;
         if( dist < min_dist ) {
             min_dist = dist;
@@ -628,7 +737,8 @@ using namespace cv;
     
     //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
     std::vector< DMatch > good_matches;
-    for( int i = 0; i < descriptors_object.rows; i++ ) {
+    if ([self shouldStopDetect]) {return NO;}
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
         if( matches[i].distance < 3*min_dist ) {
             good_matches.push_back( matches[i]);
         }
@@ -640,58 +750,63 @@ using namespace cv;
     //-- Localize the object from img_1 in img_2
     std::vector<Point2f> obj;
     std::vector<Point2f> scene;
+    if ([self shouldStopDetect]) {return NO;}
     for( size_t i = 0; i < good_matches.size(); i++ )
     {
         //-- Get the keypoints from the good matches
-        obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
+        obj.push_back( _keypoints_object[ good_matches[i].queryIdx ].pt );
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
+    if (obj.size() < 4 || scene.size() < 4) {
+        return NO;
+    }
     
+    if ([self shouldStopDetect]) {return NO;}
     Mat H = findHomography( obj, scene, CV_RANSAC );
     
     //-- Get the corners from the image_1 ( the object to be "detected" )
     std::vector<Point2f> obj_corners(4);
     obj_corners[0] = cvPoint(0,0);
-    obj_corners[1] = cvPoint( img_object.cols, 0 );
-    obj_corners[2] = cvPoint( img_object.cols, img_object.rows );
-    obj_corners[3] = cvPoint( 0, img_object.rows );
+    obj_corners[1] = cvPoint( _img_object.cols, 0 );
+    obj_corners[2] = cvPoint( _img_object.cols, _img_object.rows );
+    obj_corners[3] = cvPoint( 0, _img_object.rows );
     
     // 判断点是否是有效点
     bool exist = 1;
     std::vector<Point2f> scene_corners(4);
+    if ([self shouldStopDetect]) {return NO;}
     perspectiveTransform( obj_corners, scene_corners, H);
     for (int j = 0; j < 4; j++) {
-        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) == 0) {
+        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) < 40) {
             exist = 0;
             break;
         }
     }
     
-    // 画关键点
-    Mat img_matches;
-    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-    Point2f offset( (float)img_object.cols, 0);
-    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    if (_isDebugging) {
+        if ([self shouldStopDetect]) {return NO;}
+        // 画关键点
+        Mat img_matches;
+        drawMatches( _img_object, _keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)_img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    }
     
     if (exist) {
-        if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
-            float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
-            for (int j = 1; j < 4; j++) {
-                float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
-                if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
-                    exist = 0;
-                    break;
-                }
+        float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+        for (int j = 1; j < 4; j++) {
+            float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+            if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                exist = 0;
+                break;
             }
-        } else {
-            exist = 0;
         }
     }
     
@@ -699,8 +814,15 @@ using namespace cv;
         gettimeofday(&taskStopTime, NULL);
         elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
         elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "总耗时 " << elapsedTime << endl;
         
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
+        
+        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        [self showResultCoverViwe:CGRectMake(scene_corners[0].x,
+                                             scene_corners[0].y,
+                                             scene_corners[1].x - scene_corners[0].x,
+                                             scene_corners[2].y - scene_corners[1].y)];
     }
     
     return exist;
@@ -785,6 +907,9 @@ using namespace cv;
         obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
+    if (obj.size() < 4 || scene.size() < 4) {
+        return NO;
+    }
     
     if ([self shouldStopDetect]) {return NO;}
     Mat H = findHomography( obj, scene, CV_RANSAC );
@@ -802,38 +927,36 @@ using namespace cv;
     std::vector<Point2f> scene_corners(4);
     perspectiveTransform( obj_corners, scene_corners, H);
     for (int j = 0; j < 4; j++) {
-        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) == 0) {
+        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) < 40) {
             exist = 0;
             break;
         }
     }
     
-    // 画关键点
-    if ([self shouldStopDetect]) {return NO;}
-    Mat img_matches;
-    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-    Point2f offset( (float)img_object.cols, 0);
-    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    if (_isDebugging) {
+        if ([self shouldStopDetect]) {return NO;}
+        // 画关键点
+        Mat img_matches;
+        drawMatches( _img_object, _keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)_img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    }
     
     if (exist) {
-        if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
-            float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
-            for (int j = 1; j < 4; j++) {
-                float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
-                if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
-                    exist = 0;
-                    break;
-                }
+        float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+        for (int j = 1; j < 4; j++) {
+            float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+            if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                exist = 0;
+                break;
             }
-        } else {
-            exist = 0;
         }
     }
     
@@ -841,8 +964,15 @@ using namespace cv;
         gettimeofday(&taskStopTime, NULL);
         elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
         elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "总耗时 " << elapsedTime << endl;
         
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
+        
+        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        [self showResultCoverViwe:CGRectMake(scene_corners[0].x,
+                                             scene_corners[0].y,
+                                             scene_corners[1].x - scene_corners[0].x,
+                                             scene_corners[2].y - scene_corners[1].y)];
     }
     
     return exist;
@@ -851,91 +981,60 @@ using namespace cv;
 #pragma mark -
 - (void)showResultImage:(UIImage *)image {
     if (_isDebugging) {
-        @synchronized(self.detected) {
-            if (![self.detected boolValue]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    _imageView_result.image = image;
-                });
-            }
-        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            _imageView_result.image = image;
+        });
     }
 }
-- (void)showResultRect:(CGRect)rect {
+- (void)showResultCoverViwe:(CGRect)rect {
     dispatch_async(dispatch_get_main_queue(), ^{
-        _resultRectView.hidden = NO;
-        _resultRectView.frame = rect;
-        
+        if (_resultCoverViwe.hidden) {
+            _resultCoverViwe.hidden = NO;
+            _resultCoverViwe.frame = rect;
+        }
         [UIView animateWithDuration:0.3
                          animations:^{
+                             _resultCoverViwe.frame = rect;
                              _introduceView.alpha = 0.8;
                          }];
     });
 }
 - (IBAction)onClickRestartBtn:(id)sender {
-    @synchronized(self.detected) {
-        self.detected = [NSNumber numberWithBool:NO];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            _restartBtn.hidden = YES;
-            _resultRectView.hidden = YES;
-            
-            [UIView animateWithDuration:0.3
-                             animations:^{
-                                 _introduceView.alpha = 0;
-                             }];
-        });
-    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [UIView animateWithDuration:0.3
+                         animations:^{
+                             _introduceView.alpha = 0;
+                         }];
+    });
 }
 - (void)hasDetected:(NSString *)message {
     FLOG(@"%@", message);
-    @synchronized(self.detected) {
-        if (![self.detected boolValue]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                self.detected = [NSNumber numberWithBool:YES];
-                _restartBtn.hidden = NO;
-                
-                [_detectQueue cancelAllOperations];
-                for (NSInvocationOperation *operation in _detectQueue.operations) {
-                    [operation cancel];
-                }
-                NSLog(@"检测到了, left %d", _detectQueue.operationCount);
-            });
-        }
-    }
 }
+
 - (BOOL)shouldStopDetect {
-    @synchronized(self.detected) {
-        if ([self.detected boolValue]) {
-            return YES;
-        }
+    @synchronized(self.lastMotionTime) {
+        timeval timeNow;
+        gettimeofday(&timeNow, NULL);
+        double elapsedTime;
+        elapsedTime = timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0 - [self.lastMotionTime doubleValue];
         
-        @synchronized(self.lastMotionTime) {
-            timeval timeNow;
-            gettimeofday(&timeNow, NULL);
-            double elapsedTime;
-            elapsedTime = timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0 - [self.lastMotionTime doubleValue];
-            
-            if (elapsedTime < 0) {
-                return YES;
-            } else {
-                return NO;
-            }
+        if (elapsedTime < 0) {
+            return YES;
+        } else {
+            return NO;
         }
     }
 }
 #pragma mark - 重力感应
-- (void)viewDidAppear:(BOOL)animated
-{
+- (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     [self startMyMotionDetect];
 }
-- (void)viewDidDisappear:(BOOL)animated
-{
+- (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     [self.motionManager stopAccelerometerUpdates];
 }
-- (CMMotionManager *)motionManager
-{
+- (CMMotionManager *)motionManager {
     CMMotionManager *motionManager = nil;
     id appDelegate = [UIApplication sharedApplication].delegate;
     if ([appDelegate respondsToSelector:@selector(motionManager)]) {
@@ -1102,9 +1201,8 @@ using namespace cv;
     [_restartBtn release];
     [_imageView_object release];
     [_detectQueue release];
-    [_detected release];
     [_lastMotionTime release];
-    [_resultRectView release];
+    [_resultCoverViwe release];
     [_introduceView release];
     [super dealloc];
 }

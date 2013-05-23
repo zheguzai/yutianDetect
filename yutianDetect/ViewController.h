@@ -20,7 +20,7 @@
     IBOutlet UIImageView *_imageView_scene;
     IBOutlet UIButton *_restartBtn;
     
-    IBOutlet UIView *_resultRectView;
+    IBOutlet UIView *_resultCoverViwe;
     IBOutlet UIView *_introduceView;
 }
 
@@ -29,7 +29,6 @@
 @property (nonatomic, readonly) AVCaptureVideoDataOutput *videoOutput;
 @property (nonatomic, readonly) AVCaptureVideoPreviewLayer *videoPreviewLayer;
 
-@property (nonatomic, retain) NSNumber *detected;
 @property (nonatomic, retain) NSNumber *lastMotionTime;
 
 - (IBAction)onClickRestartBtn:(id)sender;
