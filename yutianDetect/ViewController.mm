@@ -108,17 +108,6 @@ using namespace cv;
 - (void)processFrame:(cv::Mat&)mat videoRect:(CGRect)rect videoOrientation:(AVCaptureVideoOrientation)orientation {
     [self detectImage:mat];
 }
-- (void)showResultImage:(UIImage *)image {
-    if (_isDebugging) {
-        @synchronized(self.detected) {
-            if (![self.detected boolValue]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    _imageView_result.image = image;
-                });
-            }
-        }
-    }
-}
 - (void)detectImage:(cv::Mat&)mat {
     timeval timeNow;
     gettimeofday(&timeNow, NULL);
@@ -408,19 +397,21 @@ using namespace cv;
         }
     }
     
-//    // 画关键点
 //    if ([self shouldStopDetect]) {return NO;}
-//    Mat img_matches;
-//    drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-//                good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-//                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-//    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-//    Point2f offset( (float)img_object.cols, 0);
-//    line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
-//    line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
-//    line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
-//    line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
-//    [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+//    if (_isDebugging) {
+//        // 画关键点
+//        Mat img_matches;
+//        drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
+//                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+//                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+//        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+//        Point2f offset( (float)img_object.cols, 0);
+//        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+//        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+//        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+//        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+//        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+//    }
     
     if (exist) {
         if (cv::norm(scene_corners[1] - scene_corners[0]) > 40) {
@@ -858,21 +849,40 @@ using namespace cv;
 }
 
 #pragma mark -
+- (void)showResultImage:(UIImage *)image {
+    if (_isDebugging) {
+        @synchronized(self.detected) {
+            if (![self.detected boolValue]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    _imageView_result.image = image;
+                });
+            }
+        }
+    }
+}
 - (void)showResultRect:(CGRect)rect {
     dispatch_async(dispatch_get_main_queue(), ^{
         _resultRectView.hidden = NO;
         _resultRectView.frame = rect;
         
-        [self.view bringSubviewToFront:_restartBtn];
+        [UIView animateWithDuration:0.3
+                         animations:^{
+                             _introduceView.alpha = 0.8;
+                         }];
     });
 }
 - (IBAction)onClickRestartBtn:(id)sender {
     @synchronized(self.detected) {
         self.detected = [NSNumber numberWithBool:NO];
-        _restartBtn.hidden = YES;
         
         dispatch_async(dispatch_get_main_queue(), ^{
+            _restartBtn.hidden = YES;
             _resultRectView.hidden = YES;
+            
+            [UIView animateWithDuration:0.3
+                             animations:^{
+                                 _introduceView.alpha = 0;
+                             }];
         });
     }
 }
@@ -883,7 +893,6 @@ using namespace cv;
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.detected = [NSNumber numberWithBool:YES];
                 _restartBtn.hidden = NO;
-                [_restartBtn setTitle:message forState:UIControlStateNormal];
                 
                 [_detectQueue cancelAllOperations];
                 for (NSInvocationOperation *operation in _detectQueue.operations) {
@@ -936,6 +945,8 @@ using namespace cv;
 }
 - (void)startMyMotionDetect
 {
+    //velocity[i] = (acceleration[i] + acceleration[i-1])/2 * interval + velocity[i-1];
+    //distance[i] = (velocity[i] + velocity[i-1])/2 * interval + distance[i-1];
     CMAccelerometerHandler handler = ^(CMAccelerometerData *accelerometerData, NSError *error) {
         if (preAccelerationX_min >= accelerometerData.acceleration.x) {
             preAccelerationX_min = accelerometerData.acceleration.x;
@@ -1094,6 +1105,7 @@ using namespace cv;
     [_detected release];
     [_lastMotionTime release];
     [_resultRectView release];
+    [_introduceView release];
     [super dealloc];
 }
 
