@@ -22,8 +22,12 @@
 		B6125E5E1727F7B60077F5AC /* UIImage+OpenCV.mm in Sources */ = {isa = PBXBuildFile; fileRef = B6125E5D1727F7B60077F5AC /* UIImage+OpenCV.mm */; };
 		B6125E611727F7EE0077F5AC /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E5F1727F7D30077F5AC /* libz.dylib */; };
 		B6125E621727F7F90077F5AC /* OpenCV.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6125E5A1727F5C60077F5AC /* OpenCV.framework */; };
+		B62891C9174F215800957E61 /* ViewController_ipad.xib in Resources */ = {isa = PBXBuildFile; fileRef = B62891C8174F215800957E61 /* ViewController_ipad.xib */; };
+		B62891CD174F303C00957E61 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B62891CC174F303C00957E61 /* AudioToolbox.framework */; };
+		B62891CF174F344200957E61 /* tap.aif in Resources */ = {isa = PBXBuildFile; fileRef = B62891CE174F344200957E61 /* tap.aif */; };
+		B62891D1174F478D00957E61 /* endSound.wav in Resources */ = {isa = PBXBuildFile; fileRef = B62891D0174F478D00957E61 /* endSound.wav */; };
 		B657B331174CCC79006493B0 /* buddhaCover.png in Resources */ = {isa = PBXBuildFile; fileRef = B657B330174CCC79006493B0 /* buddhaCover.png */; };
-		B6916C59173FFEB5004F47AA /* buddha.jpg in Resources */ = {isa = PBXBuildFile; fileRef = B6916C58173FFEB5004F47AA /* buddha.jpg */; };
+		B657B333174DF668006493B0 /* buddha.png in Resources */ = {isa = PBXBuildFile; fileRef = B657B332174DF668006493B0 /* buddha.png */; };
 		B6C584AE172806DA0071E9E5 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6C584AD172806DA0071E9E5 /* AVFoundation.framework */; };
 		B6C584B0172806ED0071E9E5 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6C584AF172806ED0071E9E5 /* CoreMedia.framework */; };
 		B6C584B2172806F50071E9E5 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6C584B1172806F50071E9E5 /* CoreVideo.framework */; };
@@ -53,8 +57,12 @@
 		B6125E5C1727F7B60077F5AC /* UIImage+OpenCV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+OpenCV.h"; sourceTree = "<group>"; };
 		B6125E5D1727F7B60077F5AC /* UIImage+OpenCV.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UIImage+OpenCV.mm"; sourceTree = "<group>"; };
 		B6125E5F1727F7D30077F5AC /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+		B62891C8174F215800957E61 /* ViewController_ipad.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = ViewController_ipad.xib; sourceTree = "<group>"; };
+		B62891CC174F303C00957E61 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		B62891CE174F344200957E61 /* tap.aif */ = {isa = PBXFileReference; lastKnownFileType = file; path = tap.aif; sourceTree = "<group>"; };
+		B62891D0174F478D00957E61 /* endSound.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = endSound.wav; sourceTree = "<group>"; };
 		B657B330174CCC79006493B0 /* buddhaCover.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = buddhaCover.png; sourceTree = "<group>"; };
-		B6916C58173FFEB5004F47AA /* buddha.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = buddha.jpg; sourceTree = "<group>"; };
+		B657B332174DF668006493B0 /* buddha.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = buddha.png; sourceTree = "<group>"; };
 		B6C584AD172806DA0071E9E5 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B6C584AF172806ED0071E9E5 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		B6C584B1172806F50071E9E5 /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
@@ -67,6 +75,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B62891CD174F303C00957E61 /* AudioToolbox.framework in Frameworks */,
 				B60896C4174A2F1C006120A8 /* QuartzCore.framework in Frameworks */,
 				B6E2023F1743D58D00C23979 /* CoreMotion.framework in Frameworks */,
 				B6C584B4172807030071E9E5 /* ImageIO.framework in Frameworks */,
@@ -104,6 +113,7 @@
 		B6125E361727F5530077F5AC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B62891CC174F303C00957E61 /* AudioToolbox.framework */,
 				B60896C3174A2F1C006120A8 /* QuartzCore.framework */,
 				B6C584AD172806DA0071E9E5 /* AVFoundation.framework */,
 				B6125E3B1727F5530077F5AC /* CoreGraphics.framework */,
@@ -131,6 +141,7 @@
 				B6125E4F1727F5530077F5AC /* ViewController.h */,
 				B6125E501727F5530077F5AC /* ViewController.mm */,
 				B6125E521727F5530077F5AC /* ViewController.xib */,
+				B62891C8174F215800957E61 /* ViewController_ipad.xib */,
 			);
 			path = yutianDetect;
 			sourceTree = "<group>";
@@ -152,7 +163,9 @@
 		B68926B017290C5B000FC552 /* images */ = {
 			isa = PBXGroup;
 			children = (
-				B6916C58173FFEB5004F47AA /* buddha.jpg */,
+				B62891D0174F478D00957E61 /* endSound.wav */,
+				B62891CE174F344200957E61 /* tap.aif */,
+				B657B332174DF668006493B0 /* buddha.png */,
 				B657B330174CCC79006493B0 /* buddhaCover.png */,
 			);
 			path = images;
@@ -214,8 +227,11 @@
 				B6125E4C1727F5530077F5AC /* Default@2x.png in Resources */,
 				B6125E4E1727F5530077F5AC /* Default-568h@2x.png in Resources */,
 				B6125E541727F5530077F5AC /* ViewController.xib in Resources */,
-				B6916C59173FFEB5004F47AA /* buddha.jpg in Resources */,
 				B657B331174CCC79006493B0 /* buddhaCover.png in Resources */,
+				B657B333174DF668006493B0 /* buddha.png in Resources */,
+				B62891C9174F215800957E61 /* ViewController_ipad.xib in Resources */,
+				B62891CF174F344200957E61 /* tap.aif in Resources */,
+				B62891D1174F478D00957E61 /* endSound.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -266,7 +282,8 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "iPhone Distribution: Beijing Witmob Co.,Ltd (CL6UGH4RFX)";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: Beijing Witmob Co.,Ltd (CL6UGH4RFX)";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -279,8 +296,10 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				ONLY_ACTIVE_ARCH = YES;
+				PROVISIONING_PROFILE = "";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
 				SDKROOT = iphoneos;
 			};
 			name = Debug;
@@ -296,14 +315,17 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "iPhone Distribution: Beijing Witmob Co.,Ltd (CL6UGH4RFX)";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: Beijing Witmob Co.,Ltd (CL6UGH4RFX)";
 				COPY_PHASE_STRIP = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
+				PROVISIONING_PROFILE = "";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -313,6 +335,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LIBRARY = "libstdc++";
+				CODE_SIGN_IDENTITY = "iPhone Developer: jiang peng (3G977MJYWH)";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer: jiang peng (3G977MJYWH)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SRCROOT)/yutianDetect\"",
@@ -321,7 +345,12 @@
 				GCC_PREFIX_HEADER = "yutianDetect/yutianDetect-Prefix.pch";
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/yutianDetect/OpenCV.framework/Headers\"";
 				INFOPLIST_FILE = "yutianDetect/yutianDetect-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "80D8D5EB-1DD7-4AED-B76F-6450D8CC415F";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "80D8D5EB-1DD7-4AED-B76F-6450D8CC415F";
+				TARGETED_DEVICE_FAMILY = 1;
+				VALID_ARCHS = "armv7 armv7s";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
@@ -330,6 +359,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LIBRARY = "libstdc++";
+				CODE_SIGN_IDENTITY = "iPhone Developer: jiang peng (3G977MJYWH)";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer: jiang peng (3G977MJYWH)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SRCROOT)/yutianDetect\"",
@@ -338,7 +369,13 @@
 				GCC_PREFIX_HEADER = "yutianDetect/yutianDetect-Prefix.pch";
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/yutianDetect/OpenCV.framework/Headers\"";
 				INFOPLIST_FILE = "yutianDetect/yutianDetect-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "80D8D5EB-1DD7-4AED-B76F-6450D8CC415F";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "80D8D5EB-1DD7-4AED-B76F-6450D8CC415F";
+				TARGETED_DEVICE_FAMILY = 1;
+				VALID_ARCHS = "armv7 armv7s";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;

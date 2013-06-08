@@ -18,6 +18,7 @@
 #import <dispatch/dispatch.h>
 #import <CoreMotion/CoreMotion.h>
 #import <QuartzCore/QuartzCore.h>
+#import <AudioToolbox/AudioToolbox.h>
 
 typedef enum {
     DetectType_min = 0,
@@ -57,17 +58,14 @@ using namespace cv;
     cv::Mat _img_object;
     std::vector<KeyPoint> _keypoints_object;
     Mat _descriptors_object;
+    
+    SystemSoundID tapSoundID;
 }
-
-@synthesize captureSession = _captureSession;
-@synthesize captureDevice = _captureDevice;
-@synthesize videoOutput = _videoOutput;
-@synthesize videoPreviewLayer = _videoPreviewLayer;
-
-@synthesize lastMotionTime = _lastMotionTime;
 
 #pragma mark - init
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
+    nibNameOrNil = ADDIPADSUFFIX(nibNameOrNil);
+    
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
         _isDebugging = YES;
@@ -92,6 +90,11 @@ using namespace cv;
         if (![self prepareImageObject]) {
             exit(0);
         }
+        
+        NSURL *soundFilePath = [[NSBundle mainBundle] URLForResource:@"endSound" withExtension: @"wav"];
+        AudioServicesCreateSystemSoundID((CFURLRef)soundFilePath, &tapSoundID);
+        
+        self.detectTimes = [NSNumber numberWithInt:0];
     }
     return self;
 }
@@ -104,7 +107,7 @@ using namespace cv;
     [_captureSession startRunning];
 }
 - (BOOL)prepareImageObject {
-    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"buddha" ofType:@"jpg"];
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"buddha" ofType:@"png"];
     _img_object = cv::imread([filePath UTF8String], CV_LOAD_IMAGE_GRAYSCALE);
     if (!_img_object.data) {
         return NO;
@@ -199,7 +202,7 @@ using namespace cv;
     }
     
     if (_isDebugging) {
-        UIImage *image_object = [UIImage imageNamed:@"buddha.jpg"];
+        UIImage *image_object = [UIImage imageNamed:@"buddha.png"];
         UIImage *image_scene = [UIImage imageWithCVMat:mat];
         
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -524,17 +527,17 @@ using namespace cv;
         gettimeofday(&taskStopTime, NULL);
         elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
         elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
-        std::cout << "总耗时 " << elapsedTime << endl;
+        //        std::cout << "总耗时 " << elapsedTime << endl;
         
         [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
         
-        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        //        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
         [self showResultCoverViwe:
          CGRectMake(
                     scene_corners[0].x,
                     (scene_corners[0].y + scene_corners[1].y) / 2,
-//                    (scene_corners[1].x + scene_corners[2].x - scene_corners[0].x - scene_corners[3].x) / 2,
-//                    (scene_corners[2].y + scene_corners[3].y + scene_corners[0].y - scene_corners[1].y) / 2)];
+                    //                    (scene_corners[1].x + scene_corners[2].x - scene_corners[0].x - scene_corners[3].x) / 2,
+                    //                    (scene_corners[2].y + scene_corners[3].y + scene_corners[0].y - scene_corners[1].y) / 2)];
                     scene_corners[1].x - scene_corners[0].x,
                     scene_corners[2].y - scene_corners[1].y)];
     }
@@ -988,27 +991,47 @@ using namespace cv;
 }
 - (void)showResultCoverViwe:(CGRect)rect {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (_resultCoverViwe.hidden) {
-            _resultCoverViwe.hidden = NO;
-            _resultCoverViwe.frame = rect;
+        //        if (_resultCoverViwe.hidden) {
+        //            _resultCoverViwe.hidden = NO;
+        //            _resultCoverViwe.frame = rect;
+        //        }
+        
+        @synchronized(self.detectTimes) {
+            int detectTimes = [self.detectTimes intValue];
+            detectTimes++;
+            self.detectTimes = [NSNumber numberWithInt:detectTimes];
+            
+            if (detectTimes == 1) {
+                AudioServicesPlaySystemSound(tapSoundID);
+            }
         }
-        [UIView animateWithDuration:0.3
+        
+        _introduceView.alpha = 0.6;
+        [UIView animateWithDuration:2
+                              delay:2
+                            options:UIViewAnimationOptionCurveEaseInOut
                          animations:^{
-                             _resultCoverViwe.frame = rect;
-                             _introduceView.alpha = 0.8;
+                             //                             _resultCoverViwe.frame = rect;
+                             _introduceView.alpha = 0;
+                         } completion:^(BOOL finished) {
+                             @synchronized(self.detectTimes) {
+                                 int detectTimes = [self.detectTimes intValue];
+                                 detectTimes--;
+                                 self.detectTimes = [NSNumber numberWithInt:detectTimes];
+                             }
                          }];
     });
 }
 - (IBAction)onClickRestartBtn:(id)sender {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [UIView animateWithDuration:0.3
-                         animations:^{
-                             _introduceView.alpha = 0;
-                         }];
-    });
+    //    dispatch_async(dispatch_get_main_queue(), ^{
+    //        [UIView animateWithDuration:0.3
+    //                         animations:^{
+    //                             _introduceView.alpha = 0;
+    //                         }];
+    //    });
 }
 - (void)hasDetected:(NSString *)message {
-    FLOG(@"%@", message);
+    //    FLOG(@"%@", message);
 }
 
 - (BOOL)shouldStopDetect {
@@ -1074,12 +1097,12 @@ using namespace cv;
         if (elapsedTime > 0.5) {
             self.lastMotionTime = [NSNumber numberWithDouble:timeNow.tv_sec + timeNow.tv_usec / 1000 / 1000.0];
             
-            std::cout
-            << "加速度 "
-            << abs(preAccelerationX_max - preAccelerationX_min) << " "
-            << abs(preAccelerationY_max - preAccelerationY_min) << " "
-            << abs(preAccelerationZ_max - preAccelerationZ_min) << " "
-            << std::endl;
+            //            std::cout
+            //            << "加速度 "
+            //            << abs(preAccelerationX_max - preAccelerationX_min) << " "
+            //            << abs(preAccelerationY_max - preAccelerationY_min) << " "
+            //            << abs(preAccelerationZ_max - preAccelerationZ_min) << " "
+            //            << std::endl;
             
             double limit = 0.1;
             if (abs(preAccelerationX_max - preAccelerationX_min) > limit ||
@@ -1090,7 +1113,7 @@ using namespace cv;
                 for (NSInvocationOperation *operation in _detectQueue.operations) {
                     [operation cancel];
                 }
-                NSLog(@"加速了, left %d", _detectQueue.operationCount);
+                //                NSLog(@"加速了, left %d", _detectQueue.operationCount);
             }
             
             preAccelerationX_min = 1000;
@@ -1204,6 +1227,7 @@ using namespace cv;
     [_lastMotionTime release];
     [_resultCoverViwe release];
     [_introduceView release];
+    [_detectTimes release];
     [super dealloc];
 }
 

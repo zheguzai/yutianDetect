@@ -30,6 +30,7 @@
 @property (nonatomic, readonly) AVCaptureVideoPreviewLayer *videoPreviewLayer;
 
 @property (nonatomic, retain) NSNumber *lastMotionTime;
+@property (nonatomic, retain) NSNumber *detectTimes;
 
 - (IBAction)onClickRestartBtn:(id)sender;
 

@@ -18,3 +18,6 @@
 #endif
 
 #define FLOG(str, args...) NSLog(@"[方法:%s]%@", sel_getName(_cmd), [NSString stringWithFormat:str, ##args])
+
+#define isIPAD                      ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
+#define ADDIPADSUFFIX(name)         (isIPAD ? [NSString stringWithFormat:@"%@_ipad", name] : name)
