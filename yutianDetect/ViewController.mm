@@ -27,6 +27,7 @@ typedef enum {
     DetectType_3,
     DetectType_4,
     DetectType_5,
+    DetectType_6,
     DetectType_max
 } DetectType;
 
@@ -255,6 +256,13 @@ using namespace cv;
             [_detectQueue addOperation:invocaitonOp];
             break;
         }
+        case DetectType_6: {
+            invocaitonOp = [[[NSInvocationOperation alloc] initWithTarget:self
+                                                                 selector:@selector(detectImage_6:)
+                                                                   object:argumentDictionary] autorelease];
+            [_detectQueue addOperation:invocaitonOp];
+            break;
+        }
         default: {
             break;
         }
@@ -287,7 +295,7 @@ using namespace cv;
     if ([self shouldStopDetect]) {return NO;}
     orb_scene(img_scene, Mat(), keypoints_scene, descriptors_scene, true);
     
-    //-- Step 3: Matching descriptor vectors using FLANN matcher
+    //-- Step 3: Matching descriptor vectors using BruteForceMatcher matcher
     BruteForceMatcher<HammingLUT>matcher;
     std::vector< DMatch > matches;
     if ([self shouldStopDetect]) {return NO;}
@@ -411,7 +419,7 @@ using namespace cv;
         return NO;
     }
     
-    //-- Step 1: Detect the keypoints using SURF Detector
+    //-- Step 1: Detect the keypoints using FastFeatureDetector Detector
     FastFeatureDetector detector(15);
     std::vector<KeyPoint> keypoints_scene;
     if ([self shouldStopDetect]) {return NO;}
@@ -426,7 +434,7 @@ using namespace cv;
     if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_scene, keypoints_scene, descriptors_scene );
     
-    //-- Step 3: Matching descriptor vectors using FLANN matcher
+    //-- Step 3: Matching descriptor vectors using BruteForceMatcher matcher
     BruteForceMatcher< Hamming > matcher;
     std::vector< DMatch > matches;
     if ([self shouldStopDetect]) {return NO;}
@@ -558,7 +566,7 @@ using namespace cv;
         return NO;
     }
     
-    //-- Step 1: Detect the keypoints using SURF Detector
+    //-- Step 1: Detect the keypoints using FastFeatureDetector Detector
     FastFeatureDetector detector(15);
     std::vector<KeyPoint> keypoints_scene;
     if ([self shouldStopDetect]) {return NO;}
@@ -866,7 +874,7 @@ using namespace cv;
     if ([self shouldStopDetect]) {return NO;}
     extractor.compute( img_scene, keypoints_scene, descriptors_scene );
     
-    //-- Step 3: Matching descriptor vectors using FLANN matcher
+    //-- Step 3: Matching descriptor vectors using BruteForceMatcher matcher
     BruteForceMatcher< L2<float> > matcher;
     std::vector< DMatch > matches;
     if ([self shouldStopDetect]) {return NO;}
@@ -924,6 +932,143 @@ using namespace cv;
     obj_corners[1] = cvPoint( img_object.cols, 0 );
     obj_corners[2] = cvPoint( img_object.cols, img_object.rows );
     obj_corners[3] = cvPoint( 0, img_object.rows );
+    
+    // 判断点是否是有效点
+    bool exist = 1;
+    std::vector<Point2f> scene_corners(4);
+    perspectiveTransform( obj_corners, scene_corners, H);
+    for (int j = 0; j < 4; j++) {
+        if (cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]) < 40) {
+            exist = 0;
+            break;
+        }
+    }
+    
+    if (_isDebugging) {
+        if ([self shouldStopDetect]) {return NO;}
+        // 画关键点
+        Mat img_matches;
+        drawMatches( _img_object, _keypoints_object, img_scene, keypoints_scene,
+                    good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                    vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+        Point2f offset( (float)_img_object.cols, 0);
+        line( img_matches, scene_corners[0] + offset, scene_corners[1] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + offset, scene_corners[3] + offset, Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + offset, scene_corners[0] + offset, Scalar( 0, 255, 0), 4 );
+        [self showResultImage:[UIImage imageWithCVMat:img_matches]];
+    }
+    
+    if (exist) {
+        float ratio_1 = cv::norm(obj_corners[1] - obj_corners[0]) / cv::norm(scene_corners[1] - scene_corners[0]);
+        for (int j = 1; j < 4; j++) {
+            float ratio_2 = cv::norm(obj_corners[(j+1) % 4] - obj_corners[j]) / cv::norm(scene_corners[(j+1) % 4] - scene_corners[j]);
+            if (ratio_2 / ratio_1 > 1.2 || ratio_2 / ratio_1 < 0.8) {
+                exist = 0;
+                break;
+            }
+        }
+    }
+    
+    if (exist) {
+        gettimeofday(&taskStopTime, NULL);
+        elapsedTime = (taskStopTime.tv_sec - taskStartTime.tv_sec) * 1000.0;
+        elapsedTime += (taskStopTime.tv_usec - taskStartTime.tv_usec) / 1000.0;
+        std::cout << "总耗时 " << elapsedTime << endl;
+        
+        [self hasDetected:[NSString stringWithFormat:@"%s %f", sel_getName(_cmd), elapsedTime]];
+        
+        cout<< "四个顶点" << scene_corners[0] << " " << scene_corners[1] << " " << scene_corners[2] << " " << scene_corners[3] << endl;
+        [self showResultCoverViwe:CGRectMake(scene_corners[0].x,
+                                             scene_corners[0].y,
+                                             scene_corners[1].x - scene_corners[0].x,
+                                             scene_corners[2].y - scene_corners[1].y)];
+    }
+    
+    return exist;
+}
+
+#pragma mark - ORB FlannBasedMatcher
+- (BOOL)detectImage_6:(NSDictionary *)argumentDictionary {
+    if ([self shouldStopDetect]) {return NO;}
+    cv::Mat img_scene = [((UIImage *)[argumentDictionary objectForKey:@"img_scene"]) CVGrayscaleMat];
+    
+    timeval taskStartTime, taskStopTime;
+    double elapsedTime;
+    gettimeofday(&taskStartTime, NULL);
+    
+    if(!img_scene.data) {
+        return NO;
+    }
+    
+    //-- Step 1 -- Step 2: 检测关键点，获取 descriptor
+    ORB orb_scene(100,ORB::CommonParams(1.2,1));
+    std::vector<KeyPoint> keypoints_scene;
+    Mat descriptors_scene;
+    
+    if ([self shouldStopDetect]) {return NO;}
+    orb_scene(img_scene, Mat(), keypoints_scene);
+    if (keypoints_scene.size() <= 0) {
+        return NO;
+    }
+    if ([self shouldStopDetect]) {return NO;}
+    orb_scene(img_scene, Mat(), keypoints_scene, descriptors_scene, true);
+    
+    //-- Step 3: Matching descriptor vectors using FLANN matcher
+    FlannBasedMatcher matcher;
+    std::vector< DMatch > matches;
+    if ([self shouldStopDetect]) {return NO;}
+    matcher.match( _descriptors_object, descriptors_scene, matches );
+    if (matches.size() == 0) {
+        return NO;
+    }
+    
+    //-- Quick calculation of max and min distances between keypoints
+    double max_dist = 0; double min_dist = 100;
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
+        double dist = matches[i].distance;
+        if( dist < min_dist ) {
+            min_dist = dist;
+        }
+        if( dist > max_dist ) {
+            max_dist = dist;
+        }
+    }
+    
+    //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+    std::vector< DMatch > good_matches;
+    for( int i = 0; i < _descriptors_object.rows; i++ ) {
+        if( matches[i].distance < 3*min_dist ) {
+            good_matches.push_back( matches[i]);
+        }
+    }
+    if (good_matches.size() == 0) {
+        return NO;
+    }
+    
+    //-- Localize the object from img_1 in img_2
+    std::vector<Point2f> obj;
+    std::vector<Point2f> scene;
+    for( size_t i = 0; i < good_matches.size(); i++ )
+    {
+        //-- Get the keypoints from the good matches
+        obj.push_back( _keypoints_object[ good_matches[i].queryIdx ].pt );
+        scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
+    }
+    if (obj.size() < 4 || scene.size() < 4) {
+        return NO;
+    }
+    
+    if ([self shouldStopDetect]) {return NO;}
+    Mat H = findHomography( obj, scene, CV_RANSAC );
+    
+    //-- Get the corners from the image_1 ( the object to be "detected" )
+    std::vector<Point2f> obj_corners(4);
+    obj_corners[0] = cvPoint(0,0);
+    obj_corners[1] = cvPoint( _img_object.cols, 0 );
+    obj_corners[2] = cvPoint( _img_object.cols, _img_object.rows );
+    obj_corners[3] = cvPoint( 0, _img_object.rows );
     
     // 判断点是否是有效点
     bool exist = 1;
